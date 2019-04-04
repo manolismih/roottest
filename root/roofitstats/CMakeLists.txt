@@ -14,6 +14,9 @@ if(ROOT_roofit_FOUND)
                     MACROARG "true, \"./ASCII-in-out_result.txt\""
                     POSTCMD diff ${CMAKE_CURRENT_SOURCE_DIR}/ASCII-in-out_data.txt ./ASCII-in-out_result.txt)
 if(CMAKE_BUILD_TYPE MATCHES "Debug|RelWithDebInfo")
+  ROOTTEST_ADD_TEST(ListPrettyPrinters
+                    COMMAND ls -l "${ROOTSYS}/lib/*-gdb.py"
+                    PASSREGEX "libRooFitCore.so-gdb.py")
   ROOTTEST_ADD_TEST(TestLoadingPrettyPrinters
                     COMMAND gdb root.exe -ex "add-auto-load-safe-path ${ROOTSYS}/lib" -ex "run -b -q -e \"RooRealVar x\"" -ex "info pretty-printer" -ex "quit"
                     PASSREGEX "objfile.*libRooFitCore.so pretty-printers:")

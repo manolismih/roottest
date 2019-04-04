@@ -13,10 +13,10 @@ if(ROOT_roofit_FOUND)
                     MACRO ${CMAKE_CURRENT_SOURCE_DIR}/ASCII-in-out.C
                     MACROARG "true, \"./ASCII-in-out_result.txt\""
                     POSTCMD diff ${CMAKE_CURRENT_SOURCE_DIR}/ASCII-in-out_data.txt ./ASCII-in-out_result.txt)
+if(CMAKE_BUILD_TYPE MATCHES "Debug|RelWithDebInfo")
   ROOTTEST_ADD_TEST(TestLoadingPrettyPrinters
-                    COMMAND gdb root.exe -ex "run -b -q -e \"RooRealVar x\"" -ex "info pretty-printer" -ex "quit"
-                    #COMMAND root.exe -b -q -e "RooRealVar x;"
+                    COMMAND gdb root.exe -ex "add-auto-load-safe-path ${ROOTSYS}/lib" -ex "run -b -q -e \"RooRealVar x\"" -ex "info pretty-printer" -ex "quit"
                     PASSREGEX "objfile.*libRooFitCore.so pretty-printers:")
-#                    PASSREGEX "libRooFitCore[\r\n ]\+Collections$")
+endif(CMAKE_BUILD_TYPE MATCHES "Debug|RelWithDebInfo")
 
 endif()

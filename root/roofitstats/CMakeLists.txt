@@ -13,12 +13,6 @@ if(ROOT_roofit_FOUND)
                     MACRO ${CMAKE_CURRENT_SOURCE_DIR}/ASCII-in-out.C
                     MACROARG "true, \"./ASCII-in-out_result.txt\""
                     POSTCMD diff ${CMAKE_CURRENT_SOURCE_DIR}/ASCII-in-out_data.txt ./ASCII-in-out_result.txt)
-  ROOT_ADD_GTEST(testVectorisedPDFs testVectorisedPDFs.cxx
-                 LIBRARIES RooFitCore RooFit RooStats HistFactory)
-#  ROOTTEST_ADD_TEST(TestVectorisedPDFs
-#                    MACRO ${CMAKE_CURRENT_SOURCE_DIR}/testVectorisedPDFs.cxx
-#                    MACROARG "100000, true"
-#                    )
-                    #PASSREGEX "objfile.*libRooFitCore.so pretty-printers:")
 
+  add_subdirectory(vectorisedPDFs) 
 endif()

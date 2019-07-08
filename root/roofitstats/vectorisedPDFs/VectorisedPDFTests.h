@@ -11,7 +11,6 @@
 #include "RooPlot.h"
 #include "RooRandom.h"
 
-#include <fenv.h>
 #include <numeric>
 
 #include "gtest/gtest.h"
@@ -66,7 +65,7 @@ std::ostream& operator<<(std::ostream& str, MyTimer& timer) {
 class PDFTest : public ::testing::Test
 {
   protected:
-  PDFTest(std::string&& name, std::size_t nEvt = 100000) :
+    PDFTest(std::string&& name, std::size_t nEvt = 100000) :
     _name(name),
     _nEvents(nEvt)
   {
@@ -95,7 +94,18 @@ class PDFTest : public ::testing::Test
   }
 
   virtual void setUpData() {
-    _data.reset(_pdf->generate(_variables, _nEvents));
+    RooDataSet* data = new RooDataSet("testData", "testData", _variables);
+    for (auto var : _variables) {
+      auto lv = static_cast<RooRealVar*>(var);
+      const double max = lv->getMax();
+      const double min = lv->getMin();
+      unsigned int nBatch = _nEvents/_variables.size();
+      for (unsigned int i=0; i < nBatch; ++i) {
+        lv->setVal(min + (max - min)/nBatch * i);
+        data->add(_variables);
+      }
+    }
+    _data.reset(data);
   }
 
   void makePlots(std::string&& fitStage) const{
@@ -116,8 +126,106 @@ class PDFTest : public ::testing::Test
     }
   }
 
-  ~PDFTest() {
 
+  void setValuesConstant(const RooAbsCollection& coll, bool constant) const {
+    for (auto obj : coll) {
+      auto lvalue = dynamic_cast<RooAbsRealLValue*>(obj);
+      if (lvalue)
+        lvalue->setConstant(constant);
+    }
+  }
+
+  virtual void resetParameters() {
+    _parameters = _origParameters;
+  }
+
+  std::unique_ptr<RooAbsPdf> _pdf;
+  std::unique_ptr<RooDataSet> _data;
+
+  std::string _name;
+  std::string _plotDirectory{"/tmp/"};
+  RooArgSet _variables;
+  RooArgSet _variablesToPlot;
+  RooArgSet _parameters;
+  RooArgSet _yields;
+  RooArgSet _origYields;
+  RooArgSet _origParameters;
+  RooArgSet _otherObjects;
+  const std::size_t _nEvents;
+  double _toleranceParameter{5.E-5};
+  double _toleranceCorrelation{1.E-4};
+};
+
+
+#define COMPARE_FIXED_VALUES_UNNORM(TEST_CLASS, TEST_NAME) \
+TEST_F(TEST_CLASS, TEST_NAME) {\
+  resetParameters();\
+  RooArgSet& pdfObs = *_pdf->getObservables(_data.get());\
+  _data->attachBuffers(pdfObs);\
+  MyTimer batchTimer("Evaluate batch unnorm " + _name);\
+  \
+  auto outputsBatch = _pdf->getValBatch(0, _data->sumEntries());\
+  std::cout << batchTimer << std::endl;\
+  ASSERT_TRUE(outputsBatch.size() == _data->sumEntries());\
+  \
+  std::cout << std::setprecision(15);\
+  std::vector<double> output_scalar(_data->sumEntries());\
+  MyTimer singleTimer("Evaluate scalar unnorm" + _name);\
+  for (unsigned int i=0; i < _data->sumEntries(); ++i) {\
+    _data->get(i);\
+    output_scalar[i] = _pdf->getVal();\
+  }\
+  std::cout << singleTimer << std::endl;\
+  unsigned int nOff = 0;\
+  _parameters.Print("V");\
+  for (unsigned int i=0; i < outputsBatch.size(); ++i) {\
+    const double relDiff = (output_scalar[i]-outputsBatch[i])/output_scalar[i];\
+    if (fabs(relDiff) > 1.E-13) {\
+      _data->get(i);\
+      std::cout << "Compare event " << i << "\t" << std::setprecision(15);\
+      pdfObs.printStream(std::cout, RooPrintable::kValue | RooPrintable::kName, RooPrintable::kStandard, "  ");\
+      std::cout << "\n\tscalar=" << output_scalar[i] << "\t" << _pdf->getVal()\
+          << "\n\tbatch =" << outputsBatch[i]\
+          << "\n\tdiff  =" << relDiff << std::endl;\
+      ++nOff;\
+    }\
+  }\
+  EXPECT_EQ(nOff, 0u);\
+}
+
+
+class PDFFitTest : public PDFTest
+{
+  protected:
+  PDFFitTest(std::string&& name, std::size_t nEvt = 100000) :
+    PDFTest(std::move(name), nEvt)
+  {
+
+  }
+
+  virtual void setUpData() override {
+    _data.reset(_pdf->generate(_variables, _nEvents));
+  }
+
+  ~PDFFitTest() {
+
+  }
+
+  void resetParameters() override {
+    //Kick parameters away from best-fit value
+    for (auto param : _parameters) {
+      auto lval = static_cast<RooAbsRealLValue*>(param);
+      auto orig = static_cast<RooAbsRealLValue*>(_origParameters.find(param->GetName()));
+      *lval = orig->getVal() * 1.3;
+    }
+
+    for (auto yield : _yields) {
+      auto lval = static_cast<RooAbsRealLValue*>(yield);
+      auto orig = static_cast<RooAbsRealLValue*>(_origYields.find(yield->GetName()));
+      *lval = orig->getVal() * 1.3;
+    }
+
+    setValuesConstant(_otherObjects, true);
   }
 
   void checkParams() {
@@ -174,57 +282,17 @@ class PDFTest : public ::testing::Test
     }
   }
 
-  void setValuesConstant(const RooAbsCollection& coll, bool constant) const {
-    for (auto obj : coll) {
-      auto lvalue = dynamic_cast<RooAbsRealLValue*>(obj);
-      if (lvalue)
-        lvalue->setConstant(constant);
-    }
-  }
-
-  void resetParameters() const {
-    //Kick parameters away from best-fit value
-    for (auto param : _parameters) {
-      auto lval = static_cast<RooAbsRealLValue*>(param);
-      auto orig = static_cast<RooAbsRealLValue*>(_origParameters.find(param->GetName()));
-      *lval = orig->getVal() * 1.3;
-    }
-
-    for (auto yield : _yields) {
-      auto lval = static_cast<RooAbsRealLValue*>(yield);
-      auto orig = static_cast<RooAbsRealLValue*>(_origYields.find(yield->GetName()));
-      *lval = orig->getVal() * 1.3;
-    }
-
-    setValuesConstant(_otherObjects, true);
-  }
-
-  std::unique_ptr<RooAbsPdf> _pdf;
-  std::unique_ptr<RooDataSet> _data;
-
-  std::string _name;
-  std::string _plotDirectory{"/tmp/"};
-  RooArgSet _variables;
-  RooArgSet _variablesToPlot;
-  RooArgSet _parameters;
-  RooArgSet _yields;
-  RooArgSet _origYields;
-  RooArgSet _origParameters;
-  RooArgSet _otherObjects;
-  const std::size_t _nEvents;
-  double _toleranceParameter{5.E-5};
-  double _toleranceCorrelation{1.E-4};
+  int _printLevel{-1};
 };
 
 
-
-class PDFTestWeightedData : public PDFTest {
+class PDFTestWeightedData : public PDFFitTest {
   protected:
     PDFTestWeightedData(const char* name, std::size_t events = 100000) :
-      PDFTest(name, events) { }
+      PDFFitTest(name, events) { }
 
     void setUpData() override {
-      PDFTest::setUpData();
+      PDFFitTest::setUpData();
       RooRealVar var("gausWeight", "gausWeight", 0, 10);
       RooConstVar mean("meanWeight", "", 1.);
       RooConstVar sigma("sigmaWeight", "", 0.2);
@@ -234,23 +302,19 @@ class PDFTestWeightedData : public PDFTest {
 
       auto wdata = new RooDataSet(_data->GetName(), _data->GetTitle(), *_data->get(),
           RooFit::Import(*_data), RooFit::WeightVar("gausWeight"));
-      wdata->Print("V");
-      wdata->get(0)->Print("V");
-      std::cout << "Weight is " << wdata->weight() << std::endl;
+
       _data.reset(wdata);
     }
 };
 
-
-
-#define RUN_BATCH_VS_SCALAR(TEST_CLASS, TEST_NAME) \
+#define FIT_TEST_BATCH_VS_SCALAR(TEST_CLASS, TEST_NAME) \
 TEST_F(TEST_CLASS, TEST_NAME) {\
   resetParameters();\
   MyTimer singleTimer("Fitting scalar mode " + _name);\
   auto resultSingle = _pdf->fitTo(*_data,\
       RooFit::BatchMode(false),\
       RooFit::SumW2Error(false),\
-      RooFit::PrintLevel(-1), RooFit::Save());\
+      RooFit::PrintLevel(_printLevel), RooFit::Save());\
   std::cout << singleTimer << std::endl;\
   ASSERT_TRUE(resultSingle);\
   EXPECT_EQ(resultSingle->status(), 0) << "[Scalar fit did not converge.]";\
@@ -260,7 +324,7 @@ TEST_F(TEST_CLASS, TEST_NAME) {\
   auto resultBatch = _pdf->fitTo(*_data,\
       RooFit::BatchMode(true), RooFit::Optimize(0),\
       RooFit::SumW2Error(false),\
-      RooFit::PrintLevel(-1), RooFit::Save());\
+      RooFit::PrintLevel(_printLevel), RooFit::Save());\
   std::cout << batchTimer << std::endl;\
   ASSERT_TRUE(resultBatch);\
   EXPECT_EQ(resultBatch->status(), 0) << "[Batch fit did not converge.]";\
@@ -269,14 +333,14 @@ TEST_F(TEST_CLASS, TEST_NAME) {\
 }
 
 
-#define RUN_BATCH(TEST_CLASS, TEST_NAME) \
+#define FIT_TEST_BATCH(TEST_CLASS, TEST_NAME) \
 TEST_F(TEST_CLASS, TEST_NAME) {\
   resetParameters();\
   MyTimer batchTimer("Fitting batch mode " + _name);\
   auto resultBatch = _pdf->fitTo(*_data,\
       RooFit::BatchMode(true),\
       RooFit::SumW2Error(false),\
-      RooFit::Optimize(0), RooFit::PrintLevel(-1), RooFit::Save());\
+      RooFit::Optimize(0), RooFit::PrintLevel(_printLevel), RooFit::Save());\
   std::cout << batchTimer << std::endl;\
   EXPECT_EQ(resultBatch->status(), 0) << "[Batch fit did not converge.]";\
   \
@@ -284,14 +348,14 @@ TEST_F(TEST_CLASS, TEST_NAME) {\
 }
 
 
-#define RUN_SCALAR(TEST_CLASS, TEST_NAME) \
+#define FIT_TEST_SCALAR(TEST_CLASS, TEST_NAME) \
 TEST_F(TEST_CLASS, TEST_NAME) {\
   resetParameters();\
   MyTimer singleTimer("Fitting scalar mode " + _name);\
   auto resultSingle = _pdf->fitTo(*_data,\
       RooFit::BatchMode(false),\
       RooFit::SumW2Error(false),\
-      RooFit::PrintLevel(-1), RooFit::Save());\
+      RooFit::PrintLevel(_printLevel), RooFit::Save());\
   EXPECT_EQ(resultSingle->status(), 0) << "[Scalar fit did not converge.]";\
   std::cout << singleTimer << std::endl;\
   \
@@ -303,7 +367,7 @@ TEST_F(TEST_CLASS, TEST_NAME) {\
 //
 //  MyTimer fitTimer("Fitting single mode " + testData._name);
 //  __itt_resume();
-//  auto result = _pdf->fitTo(*_data, RooFit::BatchMode(false), RooFit::PrintLevel(-1), RooFit::Save());
+//  auto result = _pdf->fitTo(*_data, RooFit::BatchMode(false), RooFit::PrintLevel(_printLevel), RooFit::Save());
 //  __itt_pause();
 //  std::cout << fitTimer << std::endl;
 //
@@ -319,7 +383,7 @@ TEST_F(TEST_CLASS, TEST_NAME) {\
 //
 //  MyTimer fitTimer("Fitting batch mode " + testData._name);
 //  __itt_resume();
-//  auto result = _pdf->fitTo(*_data, RooFit::BatchMode(true), RooFit::PrintLevel(-1), RooFit::Save());
+//  auto result = _pdf->fitTo(*_data, RooFit::BatchMode(true), RooFit::PrintLevel(_printLevel), RooFit::Save());
 //  __itt_pause();
 //  std::cout << fitTimer << std::endl;
 //

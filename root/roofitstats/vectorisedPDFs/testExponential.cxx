@@ -21,30 +21,30 @@
 #include "RooExponential.h"
 
 
-class TestExponential : public PDFTest
+class TestExponential : public PDFFitTest
 {
   protected:
     TestExponential() :
-      PDFTest("Exp(x, c1)", 100000)
+      PDFFitTest("Exp(x, c1)", 100000)
   {
       auto x = new RooRealVar("x", "x", 0.001, 20.);
       auto c1 = new RooRealVar("c1", "c1", -0.2, -50., -0.001);
       _pdf = std::make_unique<RooExponential>("expo1", "expo1", *x, *c1);
 
       for (auto var : {x}) {
-        _variables.addOwned(var);
+        _variables.addOwned(*var);
       }
 
       for (auto var : {x}) {
-        _variablesToPlot.add(var);
+        _variablesToPlot.add(*var);
       }
 
       for (auto par : {c1}) {
-        _parameters.addOwned(par);
+        _parameters.addOwned(*par);
       }
   }
 };
 
-RUN_SCALAR(TestExponential, RunScalar)
-RUN_BATCH(TestExponential, RunBatch)
-RUN_BATCH_VS_SCALAR(TestExponential, CompareBatchScalar)
+FIT_TEST_SCALAR(TestExponential, RunScalar)
+FIT_TEST_BATCH(TestExponential, RunBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestExponential, CompareBatchScalar)

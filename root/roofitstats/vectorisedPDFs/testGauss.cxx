@@ -18,11 +18,11 @@
 
 #include "RooGaussian.h"
 
-class TestGauss : public PDFTest
+class TestGauss : public PDFFitTest
 {
   protected:
     TestGauss() :
-      PDFTest("Gauss", 200000)
+      PDFFitTest("Gauss", 200000)
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
         auto x = new RooRealVar("x", "x", -10, 10);
@@ -33,18 +33,18 @@ class TestGauss : public PDFTest
         _pdf = std::make_unique<RooGaussian>("gauss", "gaussian PDF", *x, *mean, *sigma);
 
 
-      _variables.addOwned(x);
+      _variables.addOwned(*x);
 
 //      _variablesToPlot.add(x);
 
       for (auto par : {mean, sigma}) {
-        _parameters.addOwned(par);
+        _parameters.addOwned(*par);
       }
   }
 };
 
-RUN_BATCH(TestGauss, RunBatch)
-RUN_BATCH_VS_SCALAR(TestGauss, CompareBatchScalar)
+FIT_TEST_BATCH(TestGauss, RunBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestGauss, CompareBatchScalar)
 
 
 
@@ -63,24 +63,24 @@ class TestGaussWeighted : public PDFTestWeightedData
       _pdf = std::make_unique<RooGaussian>("gauss", "gaussian PDF", *x, *mean, *sigma);
 
 
-      _variables.addOwned(x);
+      _variables.addOwned(*x);
 
       for (auto par : {mean, sigma}) {
-        _parameters.addOwned(par);
+        _parameters.addOwned(*par);
       }
   }
 };
 
-RUN_BATCH(TestGaussWeighted, RunBatch)
-RUN_BATCH_VS_SCALAR(TestGaussWeighted, CompareBatchScalar)
+FIT_TEST_BATCH(TestGaussWeighted, RunBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestGaussWeighted, CompareBatchScalar)
 
 
 
-class TestGaussInMeanAndX : public PDFTest
+class TestGaussInMeanAndX : public PDFFitTest
 {
   protected:
     TestGaussInMeanAndX() :
-      PDFTest("Gauss(x, mean)")
+      PDFFitTest("Gauss(x, mean)")
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
       auto x = new RooRealVar("x", "x", -10, 10);
@@ -92,15 +92,51 @@ class TestGaussInMeanAndX : public PDFTest
 
 
       for (auto var : {x, mean}) {
-        _variables.addOwned(var);
+        _variables.addOwned(*var);
 //        _variablesToPlot.add(var);
       }
 
       for (auto par : {sigma}) {
-        _parameters.addOwned(par);
+        _parameters.addOwned(*par);
       }
   }
 };
 
-RUN_BATCH(TestGaussInMeanAndX, RunBatch)
-RUN_BATCH_VS_SCALAR(TestGaussInMeanAndX, CompareBatchScalar)
+FIT_TEST_BATCH(TestGaussInMeanAndX, RunBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestGaussInMeanAndX, CompareBatchScalar)
+
+
+class TestGaussWithFormulaParameters : public PDFFitTest
+{
+  protected:
+    TestGaussWithFormulaParameters() :
+      PDFFitTest("Gauss(x, mean)")
+  {
+      // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
+      auto x = new RooRealVar("x", "x", 0, 10);
+      auto a1 = new RooRealVar("a1", "First coefficient", 5, 0, 10);
+      auto a2 = new RooRealVar("a2", "Second coefficient", 1, 0, 10);
+      auto mean = new RooFormulaVar("mean", "mean", "a1+a2", RooArgList(*a1, *a2));
+      auto sigma = new RooFormulaVar("sigma", "sigma", "1.7*mean", RooArgList(*mean));
+
+      // Build gaussian p.d.f in terms of x,mean and sigma
+      _pdf = std::make_unique<RooGaussian>("gauss", "gaussian PDF", *x, *mean, *sigma);
+
+
+      for (auto var : {x, a1}) {
+        _variables.addOwned(*var);
+//        _variablesToPlot.add(var);
+      }
+
+      for (auto par : {a2}) {
+        _parameters.addOwned(*par);
+      }
+
+      _otherObjects.addOwned(*mean);
+      _otherObjects.addOwned(*sigma);
+  }
+};
+
+FIT_TEST_SCALAR(TestGaussWithFormulaParameters, RunScalar)
+FIT_TEST_BATCH(TestGaussWithFormulaParameters, RunBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestGaussWithFormulaParameters, CompareBatchScalar)

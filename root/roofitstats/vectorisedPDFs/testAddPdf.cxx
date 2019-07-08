@@ -32,6 +32,46 @@ class TestGaussPlusPoisson : public PDFTest
       x->setBins(42);//Prettier plots for Poisson
 
       auto mean = new RooRealVar("mean", "mean of gaussian", 20., -10, 30);
+      auto sigma = new RooRealVar("sigma", "width of gaussian", 4., 0.5, 10);
+
+      // Build gaussian p.d.f in terms of x,mean and sigma
+      auto gauss = new RooGaussian("gauss", "gaussian PDF", *x, *mean, *sigma);
+
+      auto meanPois = new RooRealVar("meanPois", "Mean of Poisson", 10.3, 0, 30);
+      auto pois = new RooPoisson("Pois", "Poisson PDF", *x, *meanPois, true);
+
+      auto fractionGaus = new RooRealVar("fractionGaus", "Fraction of Gauss component", 0.5, 0., 1.);
+      _pdf = std::make_unique<RooAddPdf>("SumGausPois", "Sum of Gaus and Poisson",
+          RooArgSet(*gauss, *pois), *fractionGaus);
+
+      _variables.addOwned(*x);
+
+//      _variablesToPlot.add(x);
+
+      for (auto par : {mean, sigma, meanPois, fractionGaus}) {
+        _parameters.addOwned(*par);
+      }
+
+      for (auto obj : std::initializer_list<RooAbsPdf*>{gauss, pois}) {
+        _otherObjects.addOwned(*obj);
+      }
+    }
+};
+
+COMPARE_FIXED_VALUES_UNNORM(TestGaussPlusPoisson, CompareFixedValues)
+
+
+class TestGaussPlusPoissonFit : public PDFFitTest
+{
+  protected:
+    TestGaussPlusPoissonFit() :
+      PDFFitTest("Gauss + Poisson", 200000)
+    {
+      // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
+      auto x = new RooRealVar("x", "x", -1.5, 40.5);
+      x->setBins(42);//Prettier plots for Poisson
+
+      auto mean = new RooRealVar("mean", "mean of gaussian", 20., -10, 30);
       auto sigma = new RooRealVar("sigma", "width of gaussian", 4., 0.1, 10);
 
       // Build gaussian p.d.f in terms of x,mean and sigma
@@ -44,23 +84,23 @@ class TestGaussPlusPoisson : public PDFTest
       _pdf = std::make_unique<RooAddPdf>("SumGausPois", "Sum of Gaus and Poisson",
           RooArgSet(*gauss, *pois), *fractionGaus);
 
-      _variables.addOwned(x);
+      _variables.addOwned(*x);
 
 //      _variablesToPlot.add(x);
 
       for (auto par : {mean, sigma, meanPois, fractionGaus}) {
-        _parameters.addOwned(par);
+        _parameters.addOwned(*par);
       }
 
       for (auto obj : std::initializer_list<RooAbsPdf*>{gauss, pois}) {
-        _otherObjects.addOwned(obj);
+        _otherObjects.addOwned(*obj);
       }
     }
 };
 
-RUN_SCALAR(TestGaussPlusPoisson, Scalar)
-RUN_BATCH(TestGaussPlusPoisson, Batch)
-RUN_BATCH_VS_SCALAR(TestGaussPlusPoisson, CompareBatchScalar)
+FIT_TEST_SCALAR(TestGaussPlusPoissonFit, Scalar)
+FIT_TEST_BATCH(TestGaussPlusPoissonFit, DISABLED_Batch)
+FIT_TEST_BATCH_VS_SCALAR(TestGaussPlusPoissonFit, DISABLED_CompareBatchScalar)
 
 
 class TestGaussPlusGaussPlusExp : public PDFTest
@@ -71,45 +111,95 @@ class TestGaussPlusGaussPlusExp : public PDFTest
     {
       auto x = new RooRealVar("x", "x", 0., 100.);
 
-      auto c = new RooRealVar("c", "c", -0.2, -100., 0.);
+      auto c = new RooRealVar("c", "c", -0.05, -100., -0.005);
       auto expo = new RooExponential("expo", "expo", *x, *c);
 
 
-      auto mean = new RooRealVar("mean1", "mean of gaussian", 20., -10, 100);
+      auto mean = new RooRealVar("mean1", "mean of gaussian", 30., -10, 100);
       auto sigma = new RooRealVar("sigma1", "width of gaussian", 4., 0.1, 20);
       auto gauss = new RooGaussian("gauss1", "gaussian PDF", *x, *mean, *sigma);
 
-      auto mean2 = new RooRealVar("mean2", "mean of gaussian", 50., -10, 100);
+      auto mean2 = new RooRealVar("mean2", "mean of gaussian", 60., 50, 100);
       auto sigma2 = new RooRealVar("sigma2", "width of gaussian", 10., 0.1, 20);
       auto gauss2 = new RooGaussian("gauss2", "gaussian PDF", *x, *mean2, *sigma2);
 
-      auto nGauss = new RooRealVar("nGauss", "Fraction of Gauss component", 100., 1., 1.E15);
-      auto nGauss2 = new RooRealVar("nGauss2", "Fraction of Gauss component", 200., 1., 1.E15);
-      auto nExp = new RooRealVar("nExp", "Number of events in exp", 1000, 1, 1.E15);
+      auto nGauss = new RooRealVar("nGauss", "Fraction of Gauss component", 800., 0., 1.E6);
+      auto nGauss2 = new RooRealVar("nGauss2", "Fraction of Gauss component", 600., 0., 1.E6);
+      auto nExp = new RooRealVar("nExp", "Number of events in exp", 1000, 0, 1.E6);
       _pdf = std::make_unique<RooAddPdf>("Sum2GausExp", "Sum of Gaus and Exponentials",
-          RooArgSet(std::initializer_list<RooAbsArg*>{gauss, gauss2, expo}),
-          RooArgSet(std::initializer_list<RooAbsArg*>{nGauss, nGauss2, nExp}));
+          RooArgSet(*gauss, *gauss2, *expo),
+          RooArgSet(*nGauss, *nGauss2, *nExp));
 
 
-      _variables.addOwned(x);
-
-      _variablesToPlot.add(x);
+      _variables.addOwned(*x);
 
       for (auto par : {c, mean, sigma, mean2, sigma2}) {
-        _parameters.addOwned(par);
+        _parameters.addOwned(*par);
       }
 
       for (auto par : {nGauss, nGauss2, nExp}) {
-        _yields.addOwned(par);
+        _yields.addOwned(*par);
       }
 
       for (auto obj : std::initializer_list<RooAbsPdf*>{expo, gauss, gauss2}) {
-        _otherObjects.addOwned(obj);
+        _otherObjects.addOwned(*obj);
       }
     }
 };
 
-RUN_SCALAR(TestGaussPlusGaussPlusExp, Scalar)
-RUN_BATCH(TestGaussPlusGaussPlusExp, Batch)
-RUN_BATCH_VS_SCALAR(TestGaussPlusGaussPlusExp, CompareBatchScalar)
+COMPARE_FIXED_VALUES_UNNORM(TestGaussPlusGaussPlusExp, CompareFixedValues)
+
+
+class TestGaussPlusGaussPlusExpFit : public PDFFitTest
+{
+  protected:
+    TestGaussPlusGaussPlusExpFit() :
+      PDFFitTest("Gauss + Gauss + Exp")
+    {
+      auto x = new RooRealVar("x", "x", 0., 100.);
+
+      auto c = new RooRealVar("c", "c", -0.05, -100., -0.005);
+      auto expo = new RooExponential("expo", "expo", *x, *c);
+
+
+      auto mean = new RooRealVar("mean1", "mean of gaussian", 30., -10, 100);
+      auto sigma = new RooRealVar("sigma1", "width of gaussian", 4., 0.1, 20);
+      auto gauss = new RooGaussian("gauss1", "gaussian PDF", *x, *mean, *sigma);
+
+      auto mean2 = new RooRealVar("mean2", "mean of gaussian", 60., 50, 100);
+      auto sigma2 = new RooRealVar("sigma2", "width of gaussian", 10., 0.1, 20);
+      auto gauss2 = new RooGaussian("gauss2", "gaussian PDF", *x, *mean2, *sigma2);
+
+      auto nGauss = new RooRealVar("nGauss", "Fraction of Gauss component", 800., 0., 1.E6);
+      auto nGauss2 = new RooRealVar("nGauss2", "Fraction of Gauss component", 600., 0., 1.E6);
+      auto nExp = new RooRealVar("nExp", "Number of events in exp", 1000, 0, 1.E6);
+      _pdf = std::make_unique<RooAddPdf>("Sum2GausExp", "Sum of Gaus and Exponentials",
+          RooArgSet(*gauss, *gauss2, *expo),
+          RooArgSet(*nGauss, *nGauss2, *nExp));
+
+
+      _variables.addOwned(*x);
+
+//      _variablesToPlot.add(*x);
+//      _printLevel = 2;
+
+      for (auto par : {c, mean, sigma, mean2, sigma2}) {
+        _parameters.addOwned(*par);
+      }
+
+      for (auto par : {nGauss, nGauss2, nExp}) {
+        _yields.addOwned(*par);
+      }
+
+      for (auto obj : std::initializer_list<RooAbsPdf*>{expo, gauss, gauss2}) {
+        _otherObjects.addOwned(*obj);
+      }
+    }
+};
+
+
+
+FIT_TEST_SCALAR(TestGaussPlusGaussPlusExpFit, Scalar)
+FIT_TEST_BATCH(TestGaussPlusGaussPlusExpFit, Batch)
+FIT_TEST_BATCH_VS_SCALAR(TestGaussPlusGaussPlusExpFit, CompareBatchScalar)
 

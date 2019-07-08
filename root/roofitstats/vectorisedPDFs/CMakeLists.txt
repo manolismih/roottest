@@ -1,3 +1,6 @@
+ROOT_ADD_GTEST(testCompatMode testCompatMode.cxx
+              LIBRARIES Gpad RooFitCore RooFit)
+
 ROOT_ADD_GTEST(testGauss testGauss.cxx
               LIBRARIES Gpad RooFitCore RooFit)
 ROOT_ADD_GTEST(testPoisson testPoisson.cxx

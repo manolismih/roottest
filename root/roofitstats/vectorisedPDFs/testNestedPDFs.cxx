@@ -22,11 +22,11 @@
 #include "RooExponential.h"
 
 
-class TestNestedPDFs : public PDFTest
+class TestNestedPDFs : public PDFFitTest
 {
   protected:
     TestNestedPDFs() :
-      PDFTest("Gauss + Exp(x, Gauss(y1)) + Exp(x, Gauss(y2))")
+      PDFFitTest("Gauss + Exp(x, Gauss(y1)) + Exp(x, Gauss(y2))")
   {
       auto x = new RooRealVar("x", "x", 0.001, 20.);
       x->setBins(10); //Speed tweak for plotting
@@ -59,30 +59,30 @@ class TestNestedPDFs : public PDFTest
           RooArgSet(*nGauss, *nExp1, *nExp2));
 
       for (auto var : {x, y1, y2}) {
-        _variables.addOwned(var);
+        _variables.addOwned(*var);
       }
 
       for (auto var : {x, y1, y2}) {
-        _variablesToPlot.add(var);
+        _variablesToPlot.add(*var);
       }
 
       for (auto par : {mean1, sigma1, mean2, mean, sigma}) {
-        _parameters.addOwned(par);
+        _parameters.addOwned(*par);
       }
 
       for (auto par : { nGauss, nExp1, nExp2}) {
-        _yields.addOwned(par);
+        _yields.addOwned(*par);
       }
 
       for (auto obj : std::initializer_list<RooAbsArg*>{c1, c2, sigma2, expo1, expo2, gauss}) {
-        _otherObjects.addOwned(obj);
+        _otherObjects.addOwned(*obj);
       }
   }
 };
 
-RUN_SCALAR(TestNestedPDFs, RunScalar)
-RUN_BATCH(TestNestedPDFs, DISABLED_RunBatch)
-RUN_BATCH_VS_SCALAR(TestNestedPDFs, CompareBatchScalar)
+FIT_TEST_SCALAR(TestNestedPDFs, RunScalar)
+FIT_TEST_BATCH(TestNestedPDFs, DISABLED_RunBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestNestedPDFs, CompareBatchScalar)
 
 
 

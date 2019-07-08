@@ -25,11 +25,11 @@
 using namespace std;
 
 
-class TestRooPolynomial : public PDFTest
+class TestRooPolynomial : public PDFFitTest
 {
   protected:
     TestRooPolynomial() :
-      PDFTest("Polynomial(...)")
+      PDFFitTest("Polynomial(...)")
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
       auto x = new RooRealVar("x", "x", 0, 10);
@@ -55,9 +55,9 @@ class TestRooPolynomial : public PDFTest
   }
 };
 
-RUN_SCALAR(TestRooPolynomial, RunScalar)
-RUN_BATCH(TestRooPolynomial, RunBatch)
-RUN_BATCH_VS_SCALAR(TestRooPolynomial, CompareBatchScalar)
+FIT_TEST_SCALAR(TestRooPolynomial, RunScalar)
+FIT_TEST_BATCH(TestRooPolynomial, RunBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestRooPolynomial, CompareBatchScalar)
 
 
 
@@ -180,11 +180,11 @@ protected:
 };
 
 
-class TestNonVecGauss : public PDFTest
+class TestNonVecGauss : public PDFFitTest
 {
   protected:
     TestNonVecGauss() :
-      PDFTest("GaussNoBatches", 200000)
+      PDFFitTest("GaussNoBatches", 200000)
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
         auto x = new RooRealVar("x", "x", -10, 10);
@@ -205,9 +205,9 @@ class TestNonVecGauss : public PDFTest
   }
 };
 
-RUN_SCALAR(TestNonVecGauss, RunScalar)
-RUN_BATCH(TestNonVecGauss, RunBatch)
-RUN_BATCH_VS_SCALAR(TestNonVecGauss, CompareBatchScalar)
+FIT_TEST_SCALAR(TestNonVecGauss, RunScalar)
+FIT_TEST_BATCH(TestNonVecGauss, RunBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestNonVecGauss, CompareBatchScalar)
 
 
 
@@ -234,17 +234,17 @@ class TestNonVecGaussWeighted : public PDFTestWeightedData
   }
 };
 
-RUN_SCALAR(TestNonVecGaussWeighted, RunScalar)
-RUN_BATCH(TestNonVecGaussWeighted, RunBatch)
-RUN_BATCH_VS_SCALAR(TestNonVecGaussWeighted, CompareBatchScalar)
+FIT_TEST_SCALAR(TestNonVecGaussWeighted, RunScalar)
+FIT_TEST_BATCH(TestNonVecGaussWeighted, RunBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestNonVecGaussWeighted, CompareBatchScalar)
 
 
 
-class TestNonVecGaussInMeanAndX : public PDFTest
+class TestNonVecGaussInMeanAndX : public PDFFitTest
 {
   protected:
     TestNonVecGaussInMeanAndX() :
-      PDFTest("GaussNoBatches(x, mean)")
+      PDFFitTest("GaussNoBatches(x, mean)")
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
       auto x = new RooRealVar("x", "x", -10, 10);
@@ -266,9 +266,9 @@ class TestNonVecGaussInMeanAndX : public PDFTest
   }
 };
 
-RUN_SCALAR(TestNonVecGaussInMeanAndX, RunScalar)
-RUN_BATCH(TestNonVecGaussInMeanAndX, RunBatch)
-RUN_BATCH_VS_SCALAR(TestNonVecGaussInMeanAndX, CompareBatchScalar)
+FIT_TEST_SCALAR(TestNonVecGaussInMeanAndX, RunScalar)
+FIT_TEST_BATCH(TestNonVecGaussInMeanAndX, RunBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestNonVecGaussInMeanAndX, CompareBatchScalar)
 
 
 

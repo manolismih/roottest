@@ -19,11 +19,11 @@
 #include "RooProdPdf.h"
 #include "RooGaussian.h"
 
-class TestProdPdf : public PDFTest
+class TestProdPdf : public PDFFitTest
 {
   protected:
     TestProdPdf() :
-      PDFTest("Gauss(x) * Gauss(y)")
+      PDFFitTest("Gauss(x) * Gauss(y)")
   {
       auto x = new RooRealVar("x", "x", 0, -5, 5);
       auto m1 = new RooRealVar("m1", "m1", 0 , -5, 5);
@@ -38,17 +38,17 @@ class TestProdPdf : public PDFTest
       _pdf = std::make_unique<RooProdPdf>("prod", "prod", RooArgSet(*g1, *g2));
 
       for (auto var : {x, y}) {
-        _variables.addOwned(var);
+        _variables.addOwned(*var);
       }
 
       for (auto par : {m1, s1, m2, s2}) {
-        _parameters.addOwned(par);
+        _parameters.addOwned(*par);
       }
 
       for (auto obj : {g1, g2}) {
-        _otherObjects.addOwned(obj);
+        _otherObjects.addOwned(*obj);
       }
   }
 };
 
-RUN_BATCH_VS_SCALAR(TestProdPdf, CompareBatchScalar)
+FIT_TEST_BATCH_VS_SCALAR(TestProdPdf, CompareBatchScalar)

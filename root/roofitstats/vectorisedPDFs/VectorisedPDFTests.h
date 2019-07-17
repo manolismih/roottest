@@ -108,6 +108,19 @@ class PDFTest : public ::testing::Test
     _data.reset(data);
   }
 
+  void randomiseParameters(ULong_t seed) {
+    auto random = RooRandom::randomGenerator();
+    random->SetSeed(seed);
+
+    for (auto param : _parameters) {
+      auto par = static_cast<RooAbsRealLValue*>(param);
+      const double uni = random->Uniform();
+      const double min = par->getMin();
+      const double max = par->getMax();
+      par->setVal(min + uni*(max-min));
+    }
+  }
+
   void makePlots(std::string&& fitStage) const{
     for (auto elm : _variablesToPlot) {
       auto var = static_cast<RooRealVar*>(elm);
@@ -139,6 +152,46 @@ class PDFTest : public ::testing::Test
     _parameters = _origParameters;
   }
 
+  void compareFixedValuesUnnorm() {
+    resetParameters();
+    RooArgSet& pdfObs = *_pdf->getObservables(_data.get());
+    _data->attachBuffers(pdfObs);
+    MyTimer batchTimer("Evaluate batch unnorm " + _name);
+
+    __itt_resume();
+    auto outputsBatch = _pdf->getValBatch(0, _data->sumEntries());
+    __itt_pause();
+    std::cout << batchTimer << std::endl;
+
+    ASSERT_TRUE(outputsBatch.size() == _data->sumEntries());
+
+    return;
+
+    std::cout << std::setprecision(15);
+    std::vector<double> output_scalar(_data->sumEntries());
+    MyTimer singleTimer("Evaluate scalar unnorm" + _name);
+    for (unsigned int i=0; i < _data->sumEntries(); ++i) {
+      _data->get(i);
+      output_scalar[i] = _pdf->getVal();
+    }
+    std::cout << singleTimer << std::endl;
+    unsigned int nOff = 0;
+    _parameters.Print("V");
+    for (unsigned int i=0; i < outputsBatch.size(); ++i) {
+      const double relDiff = (output_scalar[i]-outputsBatch[i])/output_scalar[i];
+      if (fabs(relDiff) > 1.E-13) {
+        _data->get(i);
+        std::cout << "Compare event " << i << "t" << std::setprecision(15);
+        pdfObs.printStream(std::cout, RooPrintable::kValue | RooPrintable::kName, RooPrintable::kStandard, "  ");
+        std::cout << "ntscalar=" << output_scalar[i] << "t" << _pdf->getVal()
+            << "ntbatch =" << outputsBatch[i]
+            << "ntdiff  =" << relDiff << std::endl;
+        ++nOff;
+      }
+    }
+    EXPECT_EQ(nOff, 0u);
+  }
+
   std::unique_ptr<RooAbsPdf> _pdf;
   std::unique_ptr<RooDataSet> _data;
 
@@ -159,38 +212,7 @@ class PDFTest : public ::testing::Test
 
 #define COMPARE_FIXED_VALUES_UNNORM(TEST_CLASS, TEST_NAME) \
 TEST_F(TEST_CLASS, TEST_NAME) {\
-  resetParameters();\
-  RooArgSet& pdfObs = *_pdf->getObservables(_data.get());\
-  _data->attachBuffers(pdfObs);\
-  MyTimer batchTimer("Evaluate batch unnorm " + _name);\
-  \
-  auto outputsBatch = _pdf->getValBatch(0, _data->sumEntries());\
-  std::cout << batchTimer << std::endl;\
-  ASSERT_TRUE(outputsBatch.size() == _data->sumEntries());\
-  \
-  std::cout << std::setprecision(15);\
-  std::vector<double> output_scalar(_data->sumEntries());\
-  MyTimer singleTimer("Evaluate scalar unnorm" + _name);\
-  for (unsigned int i=0; i < _data->sumEntries(); ++i) {\
-    _data->get(i);\
-    output_scalar[i] = _pdf->getVal();\
-  }\
-  std::cout << singleTimer << std::endl;\
-  unsigned int nOff = 0;\
-  _parameters.Print("V");\
-  for (unsigned int i=0; i < outputsBatch.size(); ++i) {\
-    const double relDiff = (output_scalar[i]-outputsBatch[i])/output_scalar[i];\
-    if (fabs(relDiff) > 1.E-13) {\
-      _data->get(i);\
-      std::cout << "Compare event " << i << "\t" << std::setprecision(15);\
-      pdfObs.printStream(std::cout, RooPrintable::kValue | RooPrintable::kName, RooPrintable::kStandard, "  ");\
-      std::cout << "\n\tscalar=" << output_scalar[i] << "\t" << _pdf->getVal()\
-          << "\n\tbatch =" << outputsBatch[i]\
-          << "\n\tdiff  =" << relDiff << std::endl;\
-      ++nOff;\
-    }\
-  }\
-  EXPECT_EQ(nOff, 0u);\
+  compareFixedValuesUnnorm();\
 }
 
 
@@ -228,7 +250,7 @@ class PDFFitTest : public PDFTest
     setValuesConstant(_otherObjects, true);
   }
 
-  void checkParams() {
+  void checkParameters() {
     ASSERT_FALSE(_parameters.overlaps(_otherObjects)) << "Collections of parameters and other objects "
         << "cannot overlap. This will lead to wrong results, as parameters get kicked before the fit, "
         << "other objects are set constant. Hence, the fit cannot change them.";
@@ -282,6 +304,56 @@ class PDFFitTest : public PDFTest
     }
   }
 
+  void runBatchVsScalar() {
+    resetParameters();
+    MyTimer singleTimer("Fitting scalar mode " + _name);
+    auto resultSingle = _pdf->fitTo(*_data,
+        RooFit::BatchMode(false),
+        RooFit::SumW2Error(false),
+        RooFit::PrintLevel(_printLevel), RooFit::Save());
+    std::cout << singleTimer << std::endl;
+    ASSERT_TRUE(resultSingle);
+    EXPECT_EQ(resultSingle->status(), 0) << "[Scalar fit did not converge.]";
+
+    resetParameters();
+    MyTimer batchTimer("Fitting batch mode " + _name);
+    auto resultBatch = _pdf->fitTo(*_data,
+        RooFit::BatchMode(true), RooFit::Optimize(0),
+        RooFit::SumW2Error(false),
+        RooFit::PrintLevel(_printLevel), RooFit::Save());
+    std::cout << batchTimer << std::endl;
+    ASSERT_TRUE(resultBatch);
+    EXPECT_EQ(resultBatch->status(), 0) << "[Batch fit did not converge.]";
+
+    EXPECT_TRUE(resultSingle->isIdentical(*resultBatch, _toleranceParameter, _toleranceCorrelation));
+  }
+
+  void runBatch() {
+    resetParameters();
+    MyTimer batchTimer("Fitting batch mode " + _name);
+    auto resultBatch = _pdf->fitTo(*_data,
+        RooFit::BatchMode(true),
+        RooFit::SumW2Error(false),
+        RooFit::Optimize(0), RooFit::PrintLevel(_printLevel), RooFit::Save());
+    std::cout << batchTimer << std::endl;
+    EXPECT_EQ(resultBatch->status(), 0) << "[Batch fit did not converge.]";
+
+    checkParameters();
+  }
+
+  void runScalar() {
+    resetParameters();
+    MyTimer singleTimer("Fitting scalar mode " + _name);
+    auto resultSingle = _pdf->fitTo(*_data,
+        RooFit::BatchMode(false),
+        RooFit::SumW2Error(false),
+        RooFit::PrintLevel(_printLevel), RooFit::Save());
+    EXPECT_EQ(resultSingle->status(), 0) << "[Scalar fit did not converge.]";
+    std::cout << singleTimer << std::endl;
+
+    checkParameters();
+  }
+
   int _printLevel{-1};
 };
 
@@ -309,57 +381,19 @@ class PDFTestWeightedData : public PDFFitTest {
 
 #define FIT_TEST_BATCH_VS_SCALAR(TEST_CLASS, TEST_NAME) \
 TEST_F(TEST_CLASS, TEST_NAME) {\
-  resetParameters();\
-  MyTimer singleTimer("Fitting scalar mode " + _name);\
-  auto resultSingle = _pdf->fitTo(*_data,\
-      RooFit::BatchMode(false),\
-      RooFit::SumW2Error(false),\
-      RooFit::PrintLevel(_printLevel), RooFit::Save());\
-  std::cout << singleTimer << std::endl;\
-  ASSERT_TRUE(resultSingle);\
-  EXPECT_EQ(resultSingle->status(), 0) << "[Scalar fit did not converge.]";\
-  \
-  resetParameters();\
-  MyTimer batchTimer("Fitting batch mode " + _name);\
-  auto resultBatch = _pdf->fitTo(*_data,\
-      RooFit::BatchMode(true), RooFit::Optimize(0),\
-      RooFit::SumW2Error(false),\
-      RooFit::PrintLevel(_printLevel), RooFit::Save());\
-  std::cout << batchTimer << std::endl;\
-  ASSERT_TRUE(resultBatch);\
-  EXPECT_EQ(resultBatch->status(), 0) << "[Batch fit did not converge.]";\
-  \
-  EXPECT_TRUE(resultSingle->isIdentical(*resultBatch, _toleranceParameter, _toleranceCorrelation));\
+  runBatchVsScalar();\
 }
 
 
 #define FIT_TEST_BATCH(TEST_CLASS, TEST_NAME) \
 TEST_F(TEST_CLASS, TEST_NAME) {\
-  resetParameters();\
-  MyTimer batchTimer("Fitting batch mode " + _name);\
-  auto resultBatch = _pdf->fitTo(*_data,\
-      RooFit::BatchMode(true),\
-      RooFit::SumW2Error(false),\
-      RooFit::Optimize(0), RooFit::PrintLevel(_printLevel), RooFit::Save());\
-  std::cout << batchTimer << std::endl;\
-  EXPECT_EQ(resultBatch->status(), 0) << "[Batch fit did not converge.]";\
-  \
-  checkParams();\
+  runBatch();\
 }
 
 
 #define FIT_TEST_SCALAR(TEST_CLASS, TEST_NAME) \
 TEST_F(TEST_CLASS, TEST_NAME) {\
-  resetParameters();\
-  MyTimer singleTimer("Fitting scalar mode " + _name);\
-  auto resultSingle = _pdf->fitTo(*_data,\
-      RooFit::BatchMode(false),\
-      RooFit::SumW2Error(false),\
-      RooFit::PrintLevel(_printLevel), RooFit::Save());\
-  EXPECT_EQ(resultSingle->status(), 0) << "[Scalar fit did not converge.]";\
-  std::cout << singleTimer << std::endl;\
-  \
-  checkParams();\
+  runScalar();\
 }
 
 //TEST_P(PDFTest, DISABLED_FitSingle) {
@@ -392,7 +426,7 @@ TEST_F(TEST_CLASS, TEST_NAME) {\
 //
 //  SCOPED_TRACE("FitBatch for " + testData._name);
 //  EXPECT_EQ(result->status(), 0) << " for fit result " << *result;
-//  checkParams();
+//  checkParameters();
 //}
 //
 

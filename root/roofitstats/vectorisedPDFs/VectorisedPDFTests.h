@@ -152,43 +152,82 @@ class PDFTest : public ::testing::Test
     _parameters = _origParameters;
   }
 
-  void compareFixedValuesUnnorm() {
+  void compareFixedValues(bool normalise) {
     resetParameters();
+
+    // Batch run
     RooArgSet& pdfObs = *_pdf->getObservables(_data.get());
     _data->attachBuffers(pdfObs);
-    MyTimer batchTimer("Evaluate batch unnorm " + _name);
 
+    const RooArgSet* normSet = nullptr;
+    if (normalise) {
+      normSet = &_variables;
+    }
+
+    MyTimer batchTimer("Evaluate batch unnorm " + _name);
     __itt_resume();
-    auto outputsBatch = _pdf->getValBatch(0, _data->sumEntries());
+    auto outputsBatch = _pdf->getValBatch(0, _data->sumEntries(), normSet);
     __itt_pause();
     std::cout << batchTimer << std::endl;
-
     ASSERT_TRUE(outputsBatch.size() == _data->sumEntries());
 
-    return;
+    const double front = outputsBatch[0];
+    const bool allEqual = std::all_of(outputsBatch.begin(), outputsBatch.end(),
+        [front](double val){
+      return val == front;
+    });
+    ASSERT_FALSE(allEqual) << "All return values of batch run equal.";
 
-    std::cout << std::setprecision(15);
-    std::vector<double> output_scalar(_data->sumEntries());
+    _data->resetBuffers();
+
+    // Scalar run
+    std::vector<double> output_scalar(_data->sumEntries(), -1.);
+    RooArgSet* observables = _pdf->getObservables(*_data);
+    if (normalise) {
+      normSet = new RooArgSet(*observables);
+    }
+
     MyTimer singleTimer("Evaluate scalar unnorm" + _name);
     for (unsigned int i=0; i < _data->sumEntries(); ++i) {
-      _data->get(i);
-      output_scalar[i] = _pdf->getVal();
+      *observables = *_data->get(i);
+      output_scalar[i] = _pdf->getVal(observables);
     }
     std::cout << singleTimer << std::endl;
+
+    const bool outputsChanged = std::any_of(output_scalar.begin(), output_scalar.end(),
+        [](double val){
+      return val != -1.;
+    });
+    ASSERT_TRUE(outputsChanged) << "All return values of scalar run are -1.";
+
+    const double frontSc = output_scalar.front();
+    const bool allEqualSc = std::all_of(output_scalar.begin(), output_scalar.end(),
+        [frontSc](double val){
+      return val == frontSc;
+    });
+    ASSERT_FALSE(allEqualSc) << "All return values of scalar run equal.\n\t"
+        << output_scalar[0] << " " << output_scalar[1] << " " << output_scalar[2] << " "
+        << output_scalar[3] << " " << output_scalar[4] << " " << output_scalar[5] << " ...";
+
+
+    // Compare runs
     unsigned int nOff = 0;
-    _parameters.Print("V");
     for (unsigned int i=0; i < outputsBatch.size(); ++i) {
       const double relDiff = (output_scalar[i]-outputsBatch[i])/output_scalar[i];
+
       if (fabs(relDiff) > 1.E-13) {
         _data->get(i);
-        std::cout << "Compare event " << i << "t" << std::setprecision(15);
-        pdfObs.printStream(std::cout, RooPrintable::kValue | RooPrintable::kName, RooPrintable::kStandard, "  ");
-        std::cout << "ntscalar=" << output_scalar[i] << "t" << _pdf->getVal()
-            << "ntbatch =" << outputsBatch[i]
-            << "ntdiff  =" << relDiff << std::endl;
+        if (nOff < 5) {
+          std::cout << "Compare event " << i << "\t" << std::setprecision(15);
+          pdfObs.printStream(std::cout, RooPrintable::kValue | RooPrintable::kName, RooPrintable::kStandard, "  ");
+          std::cout << "\n\tscalar=" << output_scalar[i] << "\t" << _pdf->getVal()
+                << "\n\tbatch =" << outputsBatch[i]
+                                                 << "\n\tdiff  =" << relDiff << std::endl;
+        }
         ++nOff;
       }
     }
+
     EXPECT_EQ(nOff, 0u);
   }
 
@@ -212,9 +251,13 @@ class PDFTest : public ::testing::Test
 
 #define COMPARE_FIXED_VALUES_UNNORM(TEST_CLASS, TEST_NAME) \
 TEST_F(TEST_CLASS, TEST_NAME) {\
-  compareFixedValuesUnnorm();\
+  compareFixedValues(false);\
 }
 
+#define COMPARE_FIXED_VALUES_NORM(TEST_CLASS, TEST_NAME) \
+TEST_F(TEST_CLASS, TEST_NAME) {\
+  compareFixedValues(true);\
+}
 
 class PDFFitTest : public PDFTest
 {

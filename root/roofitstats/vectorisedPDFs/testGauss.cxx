@@ -43,6 +43,7 @@ class TestGauss : public PDFFitTest
   }
 };
 
+FIT_TEST_SCALAR(TestGauss, RunScalar)
 FIT_TEST_BATCH(TestGauss, RunBatch)
 FIT_TEST_BATCH_VS_SCALAR(TestGauss, CompareBatchScalar)
 

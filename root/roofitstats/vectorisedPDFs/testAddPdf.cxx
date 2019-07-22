@@ -58,7 +58,8 @@ class TestGaussPlusPoisson : public PDFTest
     }
 };
 
-COMPARE_FIXED_VALUES_UNNORM(TestGaussPlusPoisson, CompareFixedValues)
+COMPARE_FIXED_VALUES_UNNORM(TestGaussPlusPoisson, CompareFixedValuesUnnorm)
+COMPARE_FIXED_VALUES_NORM(TestGaussPlusPoisson, CompareFixedValuesNorm)
 
 
 class TestGaussPlusPoissonFit : public PDFFitTest
@@ -98,9 +99,9 @@ class TestGaussPlusPoissonFit : public PDFFitTest
     }
 };
 
-FIT_TEST_SCALAR(TestGaussPlusPoissonFit, Scalar)
+FIT_TEST_SCALAR(TestGaussPlusPoissonFit, DISABLED_Scalar)
 FIT_TEST_BATCH(TestGaussPlusPoissonFit, DISABLED_Batch)
-FIT_TEST_BATCH_VS_SCALAR(TestGaussPlusPoissonFit, DISABLED_CompareBatchScalar)
+FIT_TEST_BATCH_VS_SCALAR(TestGaussPlusPoissonFit, CompareBatchScalar)
 
 
 class TestGaussPlusGaussPlusExp : public PDFTest
@@ -199,7 +200,7 @@ class TestGaussPlusGaussPlusExpFit : public PDFFitTest
 
 
 
-FIT_TEST_SCALAR(TestGaussPlusGaussPlusExpFit, Scalar)
-FIT_TEST_BATCH(TestGaussPlusGaussPlusExpFit, Batch)
+FIT_TEST_SCALAR(TestGaussPlusGaussPlusExpFit, DISABLED_Scalar)
+FIT_TEST_BATCH(TestGaussPlusGaussPlusExpFit, DISABLED_Batch)
 FIT_TEST_BATCH_VS_SCALAR(TestGaussPlusGaussPlusExpFit, CompareBatchScalar)
 

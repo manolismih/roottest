@@ -148,7 +148,8 @@ class TestGaussPlusGaussPlusExp : public PDFTest
     }
 };
 
-COMPARE_FIXED_VALUES_UNNORM(TestGaussPlusGaussPlusExp, CompareFixedValues)
+COMPARE_FIXED_VALUES_UNNORM(TestGaussPlusGaussPlusExp, CompareFixedValuesUnnorm)
+COMPARE_FIXED_VALUES_NORM(TestGaussPlusGaussPlusExp, CompareFixedValuesNorm)
 
 
 class TestGaussPlusGaussPlusExpFit : public PDFFitTest
@@ -181,8 +182,10 @@ class TestGaussPlusGaussPlusExpFit : public PDFFitTest
 
       _variables.addOwned(*x);
 
-//      _variablesToPlot.add(*x);
-//      _printLevel = 2;
+      // VDT stops computing exponentials below exp(-708) = 3.3075530e-308
+      // Since this test runs Gaussians far from their mean, we need to be a bit more forgiving
+      _toleranceParameter = 5.E-6;
+      _toleranceCorrelation = 1.E-3;
 
       for (auto par : {c, mean, sigma, mean2, sigma2}) {
         _parameters.addOwned(*par);

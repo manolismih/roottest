@@ -25,15 +25,18 @@ void __itt_pause() {}
 #endif
 
 
-class MyTimer {
+class RAIITimer {
    public:
-   MyTimer(std::string&& name)
-   : m_name(name), m_startTime(clock()), m_endTime(clock()) {
+   RAIITimer(std::string&& name)
+   : m_name(name), m_startTime(clock()), m_endTime(0) {
       m_startTime = clock();
    }
    
-   ~MyTimer() {
-      print(std::cout);
+   ~RAIITimer() {
+     if (!m_endTime)
+       interval();
+
+     print(std::cout);
    }
    
    clock_t diffTime() const {
@@ -55,7 +58,7 @@ class MyTimer {
    clock_t m_endTime;
 };
 
-std::ostream& operator<<(std::ostream& str, MyTimer& timer) {
+std::ostream& operator<<(std::ostream& str, RAIITimer& timer) {
    timer.interval();
    timer.print(str);
    return str;
@@ -155,20 +158,54 @@ class PDFTest : public ::testing::Test
   void compareFixedValues(bool normalise) {
     resetParameters();
 
-    // Batch run
-    RooArgSet& pdfObs = *_pdf->getObservables(_data.get());
-    _data->attachBuffers(pdfObs);
-
     const RooArgSet* normSet = nullptr;
+
+    // Scalar run
+    std::vector<double> output_scalar(_data->sumEntries(), -1.);
+    RooArgSet* observables = _pdf->getObservables(*_data);
+    if (normalise) {
+      normSet = new RooArgSet(*observables);
+    }
+
+    {
+      RAIITimer singleTimer("Evaluate scalar unnorm" + _name);
+      for (unsigned int i=0; i < _data->sumEntries(); ++i) {
+        *observables = *_data->get(i);
+        output_scalar[i] = _pdf->getVal(normSet);
+      }
+    }
+
+     const bool outputsChanged = std::any_of(output_scalar.begin(), output_scalar.end(),
+         [](double val){
+       return val != -1.;
+     });
+     ASSERT_TRUE(outputsChanged) << "All return values of scalar run are -1.";
+
+     const double frontSc = output_scalar.front();
+     const bool allEqualSc = std::all_of(output_scalar.begin(), output_scalar.end(),
+         [frontSc](double val){
+       return val == frontSc;
+     });
+     ASSERT_FALSE(allEqualSc) << "All return values of scalar run equal.\n\t"
+         << output_scalar[0] << " " << output_scalar[1] << " " << output_scalar[2] << " "
+         << output_scalar[3] << " " << output_scalar[4] << " " << output_scalar[5] << " ...";
+
+
+
+
+
+    // Batch run
+    _data->attachBuffers(*observables);
+
     if (normalise) {
       normSet = &_variables;
     }
 
-    MyTimer batchTimer("Evaluate batch unnorm " + _name);
+    RAIITimer batchTimer("Evaluate batch unnorm " + _name);
     __itt_resume();
     auto outputsBatch = _pdf->getValBatch(0, _data->sumEntries(), normSet);
     __itt_pause();
-    std::cout << batchTimer << std::endl;
+    batchTimer.interval();
     ASSERT_TRUE(outputsBatch.size() == _data->sumEntries());
 
     const double front = outputsBatch[0];
@@ -180,34 +217,8 @@ class PDFTest : public ::testing::Test
 
     _data->resetBuffers();
 
-    // Scalar run
-    std::vector<double> output_scalar(_data->sumEntries(), -1.);
-    RooArgSet* observables = _pdf->getObservables(*_data);
-    if (normalise) {
-      normSet = new RooArgSet(*observables);
-    }
 
-    MyTimer singleTimer("Evaluate scalar unnorm" + _name);
-    for (unsigned int i=0; i < _data->sumEntries(); ++i) {
-      *observables = *_data->get(i);
-      output_scalar[i] = _pdf->getVal(observables);
-    }
-    std::cout << singleTimer << std::endl;
 
-    const bool outputsChanged = std::any_of(output_scalar.begin(), output_scalar.end(),
-        [](double val){
-      return val != -1.;
-    });
-    ASSERT_TRUE(outputsChanged) << "All return values of scalar run are -1.";
-
-    const double frontSc = output_scalar.front();
-    const bool allEqualSc = std::all_of(output_scalar.begin(), output_scalar.end(),
-        [frontSc](double val){
-      return val == frontSc;
-    });
-    ASSERT_FALSE(allEqualSc) << "All return values of scalar run equal.\n\t"
-        << output_scalar[0] << " " << output_scalar[1] << " " << output_scalar[2] << " "
-        << output_scalar[3] << " " << output_scalar[4] << " " << output_scalar[5] << " ...";
 
 
     // Compare runs
@@ -216,13 +227,13 @@ class PDFTest : public ::testing::Test
       const double relDiff = (output_scalar[i]-outputsBatch[i])/output_scalar[i];
 
       if (fabs(relDiff) > 1.E-13) {
-        _data->get(i);
         if (nOff < 5) {
+          *observables = *_data->get(i);
           std::cout << "Compare event " << i << "\t" << std::setprecision(15);
-          pdfObs.printStream(std::cout, RooPrintable::kValue | RooPrintable::kName, RooPrintable::kStandard, "  ");
-          std::cout << "\n\tscalar=" << output_scalar[i] << "\t" << _pdf->getVal()
-                << "\n\tbatch =" << outputsBatch[i]
-                                                 << "\n\tdiff  =" << relDiff << std::endl;
+          observables->printStream(std::cout, RooPrintable::kValue | RooPrintable::kName, RooPrintable::kStandard, "  ");
+          std::cout << "\n\tscalar   =" << output_scalar[i] << "\tpdf->getVal()=" << _pdf->getVal()
+                    << "\n\tbatch    =" << outputsBatch[i]
+                    << "\n\trel diff =" << relDiff << std::endl;
         }
         ++nOff;
       }
@@ -244,7 +255,7 @@ class PDFTest : public ::testing::Test
   RooArgSet _origParameters;
   RooArgSet _otherObjects;
   const std::size_t _nEvents;
-  double _toleranceParameter{5.E-5};
+  double _toleranceParameter{1.E-6};
   double _toleranceCorrelation{1.E-4};
 };
 
@@ -349,7 +360,7 @@ class PDFFitTest : public PDFTest
 
   void runBatchVsScalar() {
     resetParameters();
-    MyTimer singleTimer("Fitting scalar mode " + _name);
+    RAIITimer singleTimer("Fitting scalar mode " + _name);
     auto resultSingle = _pdf->fitTo(*_data,
         RooFit::BatchMode(false),
         RooFit::SumW2Error(false),
@@ -359,7 +370,7 @@ class PDFFitTest : public PDFTest
     EXPECT_EQ(resultSingle->status(), 0) << "[Scalar fit did not converge.]";
 
     resetParameters();
-    MyTimer batchTimer("Fitting batch mode " + _name);
+    RAIITimer batchTimer("Fitting batch mode " + _name);
     auto resultBatch = _pdf->fitTo(*_data,
         RooFit::BatchMode(true), RooFit::Optimize(0),
         RooFit::SumW2Error(false),
@@ -373,7 +384,7 @@ class PDFFitTest : public PDFTest
 
   void runBatch() {
     resetParameters();
-    MyTimer batchTimer("Fitting batch mode " + _name);
+    RAIITimer batchTimer("Fitting batch mode " + _name);
     auto resultBatch = _pdf->fitTo(*_data,
         RooFit::BatchMode(true),
         RooFit::SumW2Error(false),
@@ -386,7 +397,7 @@ class PDFFitTest : public PDFTest
 
   void runScalar() {
     resetParameters();
-    MyTimer singleTimer("Fitting scalar mode " + _name);
+    RAIITimer singleTimer("Fitting scalar mode " + _name);
     auto resultSingle = _pdf->fitTo(*_data,
         RooFit::BatchMode(false),
         RooFit::SumW2Error(false),

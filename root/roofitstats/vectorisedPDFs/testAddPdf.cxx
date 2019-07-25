@@ -62,11 +62,11 @@ COMPARE_FIXED_VALUES_UNNORM(TestGaussPlusPoisson, CompareFixedValuesUnnorm)
 COMPARE_FIXED_VALUES_NORM(TestGaussPlusPoisson, CompareFixedValuesNorm)
 
 
-class TestGaussPlusPoissonFit : public PDFFitTest
+class TestGaussPlusPoissonFit : public PDFTest
 {
   protected:
     TestGaussPlusPoissonFit() :
-      PDFFitTest("Gauss + Poisson", 200000)
+      PDFTest("Gauss + Poisson", 200000)
     {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
       auto x = new RooRealVar("x", "x", -1.5, 40.5);
@@ -152,11 +152,11 @@ COMPARE_FIXED_VALUES_UNNORM(TestGaussPlusGaussPlusExp, CompareFixedValuesUnnorm)
 COMPARE_FIXED_VALUES_NORM(TestGaussPlusGaussPlusExp, CompareFixedValuesNorm)
 
 
-class TestGaussPlusGaussPlusExpFit : public PDFFitTest
+class TestGaussPlusGaussPlusExpFit : public PDFTest
 {
   protected:
     TestGaussPlusGaussPlusExpFit() :
-      PDFFitTest("Gauss + Gauss + Exp")
+      PDFTest("Gauss + Gauss + Exp")
     {
       auto x = new RooRealVar("x", "x", 0., 100.);
 

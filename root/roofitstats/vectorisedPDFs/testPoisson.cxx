@@ -40,11 +40,11 @@ class TestPoissonFixedValues : public PDFTest
 COMPARE_FIXED_VALUES_UNNORM(TestPoissonFixedValues, CompareFixedValues);
 
 
-class TestPoisson : public PDFFitTest
+class TestPoisson : public PDFTest
 {
   protected:
     TestPoisson() :
-      PDFFitTest("Poisson", 100000)
+      PDFTest("Poisson", 100000)
   {
       auto x = new RooRealVar("x", "x", -10, 100);
       auto mean = new RooRealVar("mean", "Mean of Poisson", 2., 0., 50);
@@ -63,11 +63,11 @@ FIT_TEST_BATCH(TestPoisson, RunBatch)
 FIT_TEST_BATCH_VS_SCALAR(TestPoisson, CompareBatchScalar)
 
 
-class TestPoissonOddMean : public PDFFitTest
+class TestPoissonOddMean : public PDFTest
 {
   protected:
     TestPoissonOddMean() :
-      PDFFitTest("PoissonOddMean", 100000)
+      PDFTest("PoissonOddMean", 100000)
   {
       auto x = new RooRealVar("x", "x", -10, 50);
       auto mean = new RooRealVar("mean", "Mean of Poisson", 7.5, 0., 50);
@@ -87,11 +87,11 @@ FIT_TEST_BATCH_VS_SCALAR(TestPoissonOddMean, CompareBatchScalar)
 
 
 
-class TestPoissonOddMeanNoRounding : public PDFFitTest
+class TestPoissonOddMeanNoRounding : public PDFTest
 {
   protected:
     TestPoissonOddMeanNoRounding() :
-      PDFFitTest("PoissonOddMeanNoRounding", 100000)
+      PDFTest("PoissonOddMeanNoRounding", 100000)
   {
       auto x = new RooRealVar("x", "x", -10, 50);
       x->setBins(60);

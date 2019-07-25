@@ -18,11 +18,11 @@
 
 #include "RooGaussian.h"
 
-class TestGauss : public PDFFitTest
+class TestGauss : public PDFTest
 {
   protected:
     TestGauss() :
-      PDFFitTest("Gauss", 200000)
+      PDFTest("Gauss", 200000)
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
         auto x = new RooRealVar("x", "x", -10, 10);
@@ -77,11 +77,11 @@ FIT_TEST_BATCH_VS_SCALAR(TestGaussWeighted, CompareBatchScalar)
 
 
 
-class TestGaussInMeanAndX : public PDFFitTest
+class TestGaussInMeanAndX : public PDFTest
 {
   protected:
     TestGaussInMeanAndX() :
-      PDFFitTest("Gauss(x, mean)")
+      PDFTest("Gauss(x, mean)")
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
       auto x = new RooRealVar("x", "x", -10, 10);
@@ -107,11 +107,11 @@ FIT_TEST_BATCH(TestGaussInMeanAndX, RunBatch)
 FIT_TEST_BATCH_VS_SCALAR(TestGaussInMeanAndX, CompareBatchScalar)
 
 
-class TestGaussWithFormulaParameters : public PDFFitTest
+class TestGaussWithFormulaParameters : public PDFTest
 {
   protected:
     TestGaussWithFormulaParameters() :
-      PDFFitTest("Gauss(x, mean)")
+      PDFTest("Gauss(x, mean)")
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
       auto x = new RooRealVar("x", "x", 0, 10);

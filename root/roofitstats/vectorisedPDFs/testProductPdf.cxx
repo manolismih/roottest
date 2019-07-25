@@ -19,18 +19,18 @@
 #include "RooProdPdf.h"
 #include "RooGaussian.h"
 
-class TestProdPdf : public PDFFitTest
+class TestProdPdf : public PDFTest
 {
   protected:
     TestProdPdf() :
-      PDFFitTest("Gauss(x) * Gauss(y)")
+      PDFTest("Gauss(x) * Gauss(y)", 150000)
   {
-      auto x = new RooRealVar("x", "x", 0, -5, 5);
-      auto m1 = new RooRealVar("m1", "m1", 0 , -5, 5);
-      auto s1 = new RooRealVar("s1", "s1", 1, 0.7, 1.3);
-      auto y = new RooRealVar("y", "y", 0, -5., 5.);
-      auto m2 = new RooRealVar("m2", "m2", 1.5 , -5., 5.);
-      auto s2 = new RooRealVar("s2", "s2", 2, 0.1, 5);
+      auto x = new RooRealVar("x", "x", 1, -5, 5);
+      auto m1 = new RooRealVar("m1", "m1", -0.3 , -5., 5.);
+      auto s1 = new RooRealVar("s1", "s1", 1.5, 0.7, 5.);
+      auto y = new RooRealVar("y", "y", 1, -5., 5.);
+      auto m2 = new RooRealVar("m2", "m2", 0.4, -5., 5.);
+      auto s2 = new RooRealVar("s2", "s2", 2., 0.7, 10.);
 
       //Make a 2D PDF
       auto g1 = new RooGaussian("gaus1", "gaus1", *x, *m1, *s1);
@@ -48,7 +48,21 @@ class TestProdPdf : public PDFFitTest
       for (auto obj : {g1, g2}) {
         _otherObjects.addOwned(*obj);
       }
+
+//      _variablesToPlot.add(*x);
+//      _variablesToPlot.add(*y);
+
+      _toleranceParameter = 1.E-4;
+      _toleranceCorrelation = 2.E-4;
   }
 };
 
-FIT_TEST_BATCH_VS_SCALAR(TestProdPdf, CompareBatchScalar)
+COMPARE_FIXED_VALUES_UNNORM(TestProdPdf, CompareFixedValuesUnnorm)
+COMPARE_FIXED_VALUES_NORM(TestProdPdf, CompareFixedValuesNorm)
+
+FIT_TEST_SCALAR(TestProdPdf, FitScalar)
+FIT_TEST_BATCH(TestProdPdf, FitBatch)
+
+FIT_TEST_BATCH_VS_SCALAR(TestProdPdf, FitBatchScalar)
+FIT_TEST_BATCH_VS_SCALAR_CLONE_PDF(TestProdPdf, FitBatchScalarWithCloning)
+

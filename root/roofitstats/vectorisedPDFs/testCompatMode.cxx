@@ -20,16 +20,17 @@
 #include "RooRealVar.h"
 #include "RooPolynomial.h"
 #include "TMath.h"
+#include "RooRandom.h"
 #include <math.h>
 
 using namespace std;
 
 
-class TestRooPolynomial : public PDFFitTest
+class TestRooPolynomial : public PDFTest
 {
   protected:
     TestRooPolynomial() :
-      PDFFitTest("Polynomial(...)")
+      PDFTest("Polynomial(...)")
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
       auto x = new RooRealVar("x", "x", 0, 10);
@@ -180,11 +181,11 @@ protected:
 };
 
 
-class TestNonVecGauss : public PDFFitTest
+class TestNonVecGauss : public PDFTest
 {
   protected:
     TestNonVecGauss() :
-      PDFFitTest("GaussNoBatches", 200000)
+      PDFTest("GaussNoBatches", 200000)
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
         auto x = new RooRealVar("x", "x", -10, 10);
@@ -240,11 +241,11 @@ FIT_TEST_BATCH_VS_SCALAR(TestNonVecGaussWeighted, CompareBatchScalar)
 
 
 
-class TestNonVecGaussInMeanAndX : public PDFFitTest
+class TestNonVecGaussInMeanAndX : public PDFTest
 {
   protected:
     TestNonVecGaussInMeanAndX() :
-      PDFFitTest("GaussNoBatches(x, mean)")
+      PDFTest("GaussNoBatches(x, mean)")
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
       auto x = new RooRealVar("x", "x", -10, 10);

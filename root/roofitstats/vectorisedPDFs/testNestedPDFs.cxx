@@ -22,11 +22,11 @@
 #include "RooExponential.h"
 
 
-class TestNestedPDFs : public PDFFitTest
+class TestNestedPDFs : public PDFTest
 {
   protected:
     TestNestedPDFs() :
-      PDFFitTest("Gauss + Exp(x, Gauss(y1)) + Exp(x, Gauss(y2))")
+      PDFTest("Gauss + Exp(x, Gauss(y1)) + Exp(x, Gauss(y2))")
   {
       auto x = new RooRealVar("x", "x", 0.001, 20.);
       x->setBins(10); //Speed tweak for plotting

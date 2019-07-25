@@ -1,6 +1,8 @@
+add_library(VectorisedPDFTests STATIC VectorisedPDFTests.cxx)
+link_libraries(VectorisedPDFTests Gpad RooFitCore RooFit)
+
 ROOT_ADD_GTEST(testCompatMode testCompatMode.cxx
               LIBRARIES Gpad RooFitCore RooFit)
-
 ROOT_ADD_GTEST(testGauss testGauss.cxx
               LIBRARIES Gpad RooFitCore RooFit)
 ROOT_ADD_GTEST(testPoisson testPoisson.cxx
@@ -13,10 +15,6 @@ ROOT_ADD_GTEST(testNestedPDFs testNestedPDFs.cxx
               LIBRARIES Gpad RooFitCore RooFit)
 ROOT_ADD_GTEST(testProductPdf testProductPdf.cxx
               LIBRARIES Gpad RooFitCore RooFit)
-
-#  ROOTTEST_ADD_TEST(TestVectorisedPDFs
-#                    MACRO ${CMAKE_CURRENT_SOURCE_DIR}/testVectorisedPDFs.cxx
-#                    MACROARG "100000, true"
-#                    )
-                    #PASSREGEX "objfile.*libRooFitCore.so pretty-printers:")
+ROOT_ADD_GTEST(testJohnson testJohnson.cxx
+              LIBRARIES Gpad RooFitCore RooFit)
 

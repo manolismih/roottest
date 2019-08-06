@@ -23,9 +23,9 @@ class TestProdPdf : public PDFTest
 {
   protected:
     TestProdPdf() :
-      PDFTest("Gauss(x) * Gauss(y)", 150000)
+      PDFTest("Gauss(x) * Gauss(y)", 75000)
   {
-      auto x = new RooRealVar("x", "x", 1, -5, 5);
+      auto x = new RooRealVar("x", "x", 1, -7, 7);
       auto m1 = new RooRealVar("m1", "m1", -0.3 , -5., 5.);
       auto s1 = new RooRealVar("s1", "s1", 1.5, 0.7, 5.);
       auto y = new RooRealVar("y", "y", 1, -5., 5.);
@@ -51,9 +51,6 @@ class TestProdPdf : public PDFTest
 
 //      _variablesToPlot.add(*x);
 //      _variablesToPlot.add(*y);
-
-      _toleranceParameter = 1.E-4;
-      _toleranceCorrelation = 2.E-4;
   }
 };
 

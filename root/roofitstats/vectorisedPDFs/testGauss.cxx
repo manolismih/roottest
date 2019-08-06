@@ -43,6 +43,9 @@ class TestGauss : public PDFTest
   }
 };
 
+COMPARE_FIXED_VALUES_UNNORM(TestGauss, CompareFixedUnnorm)
+COMPARE_FIXED_VALUES_NORM(TestGauss, CompareFixedNorm)
+
 FIT_TEST_SCALAR(TestGauss, RunScalar)
 FIT_TEST_BATCH(TestGauss, RunBatch)
 FIT_TEST_BATCH_VS_SCALAR(TestGauss, CompareBatchScalar)
@@ -103,6 +106,9 @@ class TestGaussInMeanAndX : public PDFTest
   }
 };
 
+COMPARE_FIXED_VALUES_UNNORM(TestGaussInMeanAndX, FixedValuesUnnorm)
+COMPARE_FIXED_VALUES_NORM(TestGaussInMeanAndX, FixedValuesNorm)
+
 FIT_TEST_BATCH(TestGaussInMeanAndX, RunBatch)
 FIT_TEST_BATCH_VS_SCALAR(TestGaussInMeanAndX, CompareBatchScalar)
 
@@ -111,10 +117,10 @@ class TestGaussWithFormulaParameters : public PDFTest
 {
   protected:
     TestGaussWithFormulaParameters() :
-      PDFTest("Gauss(x, mean)")
+      PDFTest("Gauss(x, mean)", 50000)
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
-      auto x = new RooRealVar("x", "x", 0, 10);
+      auto x = new RooRealVar("x", "x", 0, 30);
       auto a1 = new RooRealVar("a1", "First coefficient", 5, 0, 10);
       auto a2 = new RooRealVar("a2", "Second coefficient", 1, 0, 10);
       auto mean = new RooFormulaVar("mean", "mean", "a1+a2", RooArgList(*a1, *a2));
@@ -126,7 +132,7 @@ class TestGaussWithFormulaParameters : public PDFTest
 
       for (auto var : {x, a1}) {
         _variables.addOwned(*var);
-//        _variablesToPlot.add(var);
+//        _variablesToPlot.add(*var);
       }
 
       for (auto par : {a2}) {
@@ -137,6 +143,9 @@ class TestGaussWithFormulaParameters : public PDFTest
       _otherObjects.addOwned(*sigma);
   }
 };
+
+COMPARE_FIXED_VALUES_UNNORM(TestGaussWithFormulaParameters, FixedValuesUnnorm)
+COMPARE_FIXED_VALUES_NORM(TestGaussWithFormulaParameters, FixedValuesNorm)
 
 FIT_TEST_SCALAR(TestGaussWithFormulaParameters, RunScalar)
 FIT_TEST_BATCH(TestGaussWithFormulaParameters, RunBatch)

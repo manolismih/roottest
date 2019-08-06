@@ -141,6 +141,7 @@ class PDFTestWeightedData : public PDFTest {
 #define FIT_TEST_BATCH(TEST_CLASS, TEST_NAME) \
     TEST_F(TEST_CLASS, TEST_NAME) {\
   auto result = runBatchFit(_pdf.get());\
+  ASSERT_NE(result, nullptr);\
   checkParameters();\
 }
 
@@ -148,6 +149,7 @@ class PDFTestWeightedData : public PDFTest {
 #define FIT_TEST_SCALAR(TEST_CLASS, TEST_NAME) \
     TEST_F(TEST_CLASS, TEST_NAME) {\
   auto result = runScalarFit(_pdf.get());\
+  ASSERT_NE(result, nullptr);\
   checkParameters();\
 }
 

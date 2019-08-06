@@ -85,9 +85,6 @@ _nEvents(nEvt)
 void PDFTest::SetUp() {
   _origParameters.addClone(_parameters);
   _origYields.addClone(_yields);
-
-  makeUniformData();
-  makeFitData();
 }
 
 void PDFTest::makeFitData() {
@@ -160,12 +157,18 @@ void PDFTest::kickParameters() {
   for (auto param : _parameters) {
     auto lval = static_cast<RooAbsRealLValue*>(param);
     auto orig = static_cast<RooAbsRealLValue*>(_origParameters.find(param->GetName()));
+    if (orig->isConstant())
+      continue;
+
     *lval = orig->getVal() * 1.3 + (orig->getVal() == 0. ? 0.1 : 0.);
   }
 
   for (auto yield : _yields) {
     auto lval = static_cast<RooAbsRealLValue*>(yield);
     auto orig = static_cast<RooAbsRealLValue*>(_origYields.find(yield->GetName()));
+    if (orig->isConstant())
+      continue;
+
     *lval = orig->getVal() * 1.3 + (orig->getVal() == 0. ? 0.1 : 0.);
   }
 
@@ -173,19 +176,55 @@ void PDFTest::kickParameters() {
 }
 
 void PDFTest::compareFixedValues(bool normalise, bool runTimer, unsigned int nChunks) {
+  if (!_dataUniform)
+    makeUniformData();
+
   const RooArgSet* normSet = nullptr;
   std::string timerSuffix = " unnorm";
 
-  // Scalar run
-  std::vector<double> outputsScalar(_dataUniform->sumEntries(), -1.);
   RooArgSet* observables = _pdf->getObservables(*_dataUniform);
   RooArgSet* parameters  = _pdf->getParameters(*_dataUniform);
+
+
+  // Batch run
+  _dataUniform->attachBuffers(*observables);
+  *parameters = _parameters;
+
+  if (normalise) {
+    normSet = &_variables;
+  }
+
+  MyTimer batchTimer("Evaluate batch" + timerSuffix + _name);
+  __itt_resume();
+  if (nChunks != 1)
+    std::cerr << __FILE__ << ":" << __LINE__ << " Implement this!" << std::endl;
+  auto outputsBatch = _pdf->getValBatch(0, _dataUniform->sumEntries(), normSet);
+  __itt_pause();
+  if (runTimer)
+    std::cout << batchTimer;
+
+  ASSERT_TRUE(outputsBatch.size() == _dataUniform->sumEntries());
+
+  const double front = outputsBatch[0];
+  const bool allEqual = std::all_of(outputsBatch.begin(), outputsBatch.end(),
+      [front](double val){
+    return val == front;
+  });
+  ASSERT_FALSE(allEqual) << "All return values of batch run equal. "
+      << outputsBatch[0] << " " << outputsBatch[1] << " " << outputsBatch[2];
+
+  _dataUniform->resetBuffers();
+
+
+
+
+  // Scalar run
+  std::vector<double> outputsScalar(_dataUniform->sumEntries(), -1.);
   if (normalise) {
     //      normSet = new RooArgSet(*observables);
     normSet = &_variables;
     timerSuffix = " norm";
   }
-
   *parameters = _parameters;
 
 
@@ -216,39 +255,6 @@ void PDFTest::compareFixedValues(bool normalise, bool runTimer, unsigned int nCh
 
 
 
-
-
-  // Batch run
-  _dataUniform->attachBuffers(*observables);
-
-  if (normalise) {
-    normSet = &_variables;
-  }
-
-  MyTimer batchTimer("Evaluate batch" + timerSuffix + _name);
-  __itt_resume();
-  if (nChunks != 1)
-    std::cerr << __FILE__ << ":" << __LINE__ << " Implement this!" << std::endl;
-  auto outputsBatch = _pdf->getValBatch(0, _dataUniform->sumEntries(), normSet);
-  __itt_pause();
-  if (runTimer)
-    std::cout << batchTimer;
-
-  ASSERT_TRUE(outputsBatch.size() == _dataUniform->sumEntries());
-
-  const double front = outputsBatch[0];
-  const bool allEqual = std::all_of(outputsBatch.begin(), outputsBatch.end(),
-      [front](double val){
-    return val == front;
-  });
-  ASSERT_FALSE(allEqual) << "All return values of batch run equal.";
-
-  _dataUniform->resetBuffers();
-
-
-
-
-
   // Compare runs
   unsigned int nOff = 0;
   for (unsigned int i=0; i < outputsBatch.size(); ++i) {
@@ -257,7 +263,7 @@ void PDFTest::compareFixedValues(bool normalise, bool runTimer, unsigned int nCh
         : outputsScalar[i];
 
     // Check accuracy of computations, but give it some leniency for very small likelihoods
-    if (fabs(relDiff) > 1.E-13 && fabs(outputsScalar[i]) > 1.E-300) {
+    if (fabs(relDiff) > 1.E-12 && fabs(outputsScalar[i]) > 1.E-300) {
       if (nOff < 5) {
         *observables = *_dataUniform->get(i);
         std::cout << "Compare event " << i << "\t" << std::setprecision(15);
@@ -267,6 +273,16 @@ void PDFTest::compareFixedValues(bool normalise, bool runTimer, unsigned int nCh
                                                              << "\n\trel diff = " << relDiff << std::endl;
       }
       ++nOff;
+#ifdef ROOFIT_CHECK_CACHED_VALUES
+      try {
+        *observables = *_dataUniform->get(i);
+        _pdf->getVal(normSet);
+        _pdf->checkBatchComputation(i, normSet);
+      } catch (std::exception& e) {
+        std::cerr << "ERROR when checking batch computation for event " << i << ":\n"
+            << e.what() << std::endl;
+      }
+#endif
     }
   }
 
@@ -347,20 +363,31 @@ void PDFTest::runBatchVsScalar(bool clonePDF) {
 
   resetParameters();
 
+  ASSERT_NE(resultScalar, nullptr);
+  ASSERT_NE(resultBatch,  nullptr);
+
   EXPECT_TRUE(resultScalar->isIdentical(*resultBatch, _toleranceParameter, _toleranceCorrelation));
 }
 
 std::unique_ptr<RooFitResult> PDFTest::runBatchFit(RooAbsPdf* pdf) {
+  if (!_dataFit)
+    makeFitData();
+
   kickParameters();
   makePlots(::testing::UnitTest::GetInstance()->current_test_info()->name()+std::string("_batch_prefit"));
 
   auto pars = pdf->getParameters(*_dataFit);
   *pars = _parameters;
-  std::size_t index = 0;
-  auto first = static_cast<RooAbsReal*>((*pars)[index]);
-  auto second = static_cast<RooAbsReal*>(_origParameters[index]);
 
-  EXPECT_NE(first->getVal(), second->getVal()) << "Parameter " << first->GetName() << " is identical after kicking.";
+  for (unsigned int index = 0; index < pars->size(); ++index) {
+    auto pdfParameter = static_cast<RooAbsReal*>((*pars)[index]);
+    auto origParameter = static_cast<RooAbsReal*>(_origParameters.find(*pdfParameter));
+    if (!origParameter || origParameter->isConstant())
+      continue;
+
+    EXPECT_NE(pdfParameter->getVal(), origParameter->getVal())
+        << "Parameter #" << index << "=" << pdfParameter->GetName() << " is identical after kicking.";
+  }
 
   if (HasFailure()) {
     std::cout << "Pre-fit parameters:\n";
@@ -376,6 +403,10 @@ std::unique_ptr<RooFitResult> PDFTest::runBatchFit(RooAbsPdf* pdf) {
       RooFit::Optimize(0),
       RooFit::PrintLevel(_printLevel), RooFit::Save());
   std::cout << batchTimer;
+  EXPECT_NE(result, nullptr);
+  if (!result)
+    return nullptr;
+
   EXPECT_EQ(result->status(), 0) << "[Batch fit did not converge.]";
 
   makePlots(::testing::UnitTest::GetInstance()->current_test_info()->name()+std::string("_batch_postfit"));
@@ -384,16 +415,31 @@ std::unique_ptr<RooFitResult> PDFTest::runBatchFit(RooAbsPdf* pdf) {
 }
 
 std::unique_ptr<RooFitResult> PDFTest::runScalarFit(RooAbsPdf* pdf) {
+  if (!_dataFit)
+    makeFitData();
+
   kickParameters();
-  makePlots(::testing::UnitTest::GetInstance()->current_test_info()->name()+std::string("scalar_prefit"));
+  makePlots(::testing::UnitTest::GetInstance()->current_test_info()->name()+std::string("_scalar_prefit"));
 
   auto pars = pdf->getParameters(*_dataFit);
   *pars = _parameters;
-  std::size_t index = 0;
-  auto first = static_cast<RooAbsReal*>((*pars)[index]);
-  auto second = static_cast<RooAbsReal*>(_origParameters[index]);
 
-  EXPECT_NE(first->getVal(), second->getVal()) << "Parameter " << first->GetName() << " is identical after kicking.";
+  for (unsigned int index = 0; index < pars->size(); ++index) {
+    auto pdfParameter = static_cast<RooAbsReal*>((*pars)[index]);
+    auto origParameter = static_cast<RooAbsReal*>(_origParameters.find(*pdfParameter));
+    if (!origParameter || origParameter->isConstant())
+      continue;
+
+    EXPECT_NE(pdfParameter->getVal(), origParameter->getVal())
+        << "Parameter #" << index << "=" << pdfParameter->GetName() << " is identical after kicking.";
+  }
+
+  if (HasFailure()) {
+    std::cout << "Pre-fit parameters:\n";
+    _parameters.Print("V");
+    std::cout << "Orig parameters:\n";
+    _origParameters.Print("V");
+  }
 
   MyTimer singleTimer("Fitting scalar mode " + _name);
   auto result = pdf->fitTo(*_dataFit,
@@ -401,9 +447,14 @@ std::unique_ptr<RooFitResult> PDFTest::runScalarFit(RooAbsPdf* pdf) {
       RooFit::SumW2Error(false),
       RooFit::PrintLevel(_printLevel), RooFit::Save());
   std::cout << singleTimer;
+  EXPECT_NE(result, nullptr);
+  if (!result)
+    return nullptr;
+
+
   EXPECT_EQ(result->status(), 0) << "[Scalar fit did not converge.]";
 
-  makePlots(::testing::UnitTest::GetInstance()->current_test_info()->name()+std::string("scalar_postfit"));
+  makePlots(::testing::UnitTest::GetInstance()->current_test_info()->name()+std::string("_scalar_postfit"));
 
   return std::unique_ptr<RooFitResult>(result);
 }

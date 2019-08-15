@@ -25,11 +25,13 @@ class TestJohnson : public PDFTest
     TestJohnson() :
       PDFTest("Johnson", 200000)
   {
-      auto mass = new RooRealVar("mass", "mass", 0., -100., 500.);
+      auto mass = new RooRealVar("mass", "mass", 0., 0., 500.);
       auto mu = new RooRealVar("mu", "Location parameter of normal distribution", 300., 0., 500.);
-      auto lambda = new RooRealVar ("lambda", "Two sigma of normal distribution", 100., 1.E-6, 200.);
+      auto lambda = new RooRealVar ("lambda", "Two sigma of normal distribution", 100., 10, 200.);
       auto gamma = new RooRealVar ("gamma", "gamma", 0.5, -10., 10.);
-      auto delta = new RooRealVar ("delta", "delta", 2., 1.E-6, 10.);
+      auto delta = new RooRealVar ("delta", "delta", 2., 1., 10.);
+      // delta is highly correlated with lambda. This troubles the fit.
+      delta->setConstant();
 
       _pdf = std::make_unique<RooJohnson>("johnson", "johnson", *mass, *mu, *lambda, *gamma, *delta, -1.E300);
 
@@ -42,12 +44,15 @@ class TestJohnson : public PDFTest
         _parameters.addOwned(*par);
       }
 
-      _toleranceParameter = 1.E-5;
+      _toleranceCompareBatches = 5.E-13;
+      _toleranceCompareLogs = 6.E-13;
+//      _toleranceParameter = 1.E-5;
   }
 };
 
 COMPARE_FIXED_VALUES_UNNORM(TestJohnson, CompareFixedUnnorm)
 COMPARE_FIXED_VALUES_NORM(TestJohnson, CompareFixedNorm)
+COMPARE_FIXED_VALUES_NORM_LOG(TestJohnson, CompareFixedNormLog)
 
 FIT_TEST_SCALAR(TestJohnson, FitScalar)
 FIT_TEST_BATCH(TestJohnson, FitBatch)
@@ -62,52 +67,58 @@ class TestJohnsonInMassAndGamma : public PDFTest
       PDFTest("Johnson in mass and gamma", 200000)
   {
       auto mass = new RooRealVar("mass", "mass", 0., -100., 500.);
-      auto mu = new RooRealVar("mu", "Location parameter of normal distribution", 300., -100., 500.);
-      auto lambda = new RooRealVar ("lambda", "Two sigma of normal distribution", 50., 1.E-6, 100.);
-      auto gamma = new RooRealVar ("gamma", "gamma", -0.7, -10., 10.);
-      auto delta = new RooRealVar ("delta", "delta", 1.5, 1.E-6, 10.);
+      auto mu = new RooRealVar("mu", "Location parameter of normal distribution", 200., -100., 300.);
+      auto lambda = new RooRealVar ("lambda", "Two sigma of normal distribution", 50., 5, 100.);
+      auto gamma = new RooRealVar ("gamma", "gamma", -0.7, -2., 2.);
+      auto delta = new RooRealVar ("delta", "delta", 10, 0.9, 15.);
 
-      _pdf = std::make_unique<RooJohnson>("johnson", "johnson", *mass, *mu, *lambda, *gamma, *delta, -1.E300);
+      _pdf = std::make_unique<RooJohnson>("johnson", "johnson", *mass, *mu, *lambda, *gamma, *delta);
 
 
       _variables.addOwned(*mass);
       _variables.addOwned(*gamma);
 
-      //      _variablesToPlot.add(x);
+      _variablesToPlot.add(*mass);
+//      _variablesToPlot.add(*gamma);
 
       for (auto par : {mu, lambda, delta}) {
         _parameters.addOwned(*par);
       }
+
+      // The parameters seem to be nasty:
+      _toleranceCompareBatches = 3.E-12;
+      _toleranceCompareLogs = 5.E-14;
+      _toleranceParameter = 5.E-5;
+      _toleranceCorrelation = 5.E-3;
   }
 };
 
 COMPARE_FIXED_VALUES_UNNORM(TestJohnsonInMassAndGamma, CompareFixedUnnorm)
 COMPARE_FIXED_VALUES_NORM(TestJohnsonInMassAndGamma, CompareFixedNorm)
+COMPARE_FIXED_VALUES_NORM_LOG(TestJohnsonInMassAndGamma, DISABLED_CompareFixedNormLog)
 
-FIT_TEST_BATCH(TestJohnsonInMassAndGamma, RunBatch)
+FIT_TEST_SCALAR(TestJohnsonInMassAndGamma, FitScalar)
+FIT_TEST_BATCH(TestJohnsonInMassAndGamma, FitBatch)
 FIT_TEST_BATCH_VS_SCALAR(TestJohnsonInMassAndGamma, CompareBatchScalar)
+
 
 
 class TestJohnsonWithFormulaParameters : public PDFTest
 {
   protected:
     TestJohnsonWithFormulaParameters() :
-      PDFTest("Johnson with formula")
+      PDFTest("Johnson with formula", 100000)
   {
       // Declare variables x,mean,sigma with associated name, title, initial value and allowed range
-      auto mass = new RooRealVar("mass", "mass", 0., -5000., 5000.);
-      auto mu = new RooRealVar("mu", "Location parameter of normal distribution", -100, -150., 200.);
-      auto lambda = new RooRealVar ("lambda", "Two sigma of normal distribution", 90., 0.1, 150.);
-      auto gamma = new RooRealVar ("gamma", "gamma", -0.4, -10., 10.);
-      auto delta = new RooAddition("delta", "delta",
-          RooArgList(RooFit::RooConst(1.337), RooFit::RooConst(0.0002)),
-          RooArgList(RooFit::RooConst(1.), *mass));
-//      auto delta = new RooFormulaVar("delta", "delta", "1.337 + 0.0002 * mass", RooArgList(*mass));
+      auto mass = new RooRealVar("mass", "mass", 0., -500., 500.);
+      auto mu = new RooRealVar("mu", "Location parameter of normal distribution", -50, -150., 200.);
+      auto lambda = new RooRealVar ("lambda", "Two sigma of normal distribution", 120., 10, 180.);
+      auto gamma = new RooRealVar ("gamma", "gamma", -1.8, -10., 10.);
+      auto delta = new RooFormulaVar("delta", "delta", "1.337 + 0.1*gamma", RooArgList(*gamma));
 
-      // Build gaussian p.d.f in terms of x,mean and sigma
       _pdf = std::make_unique<RooJohnson>("johnson", "johnson", *mass, *mu, *lambda, *gamma, *delta, -1.E300);
 
-      _variablesToPlot.add(*mass);
+//      _variablesToPlot.add(*mass);
 
       for (auto var : {mass}) {
         _variables.addOwned(*var);
@@ -118,12 +129,18 @@ class TestJohnsonWithFormulaParameters : public PDFTest
       }
 
       _otherObjects.addOwned(*delta);
+
+      _toleranceCompareBatches = 2.E-12;
+      _toleranceCompareLogs = 5.E-14;
+      _toleranceParameter = 3.E-5;
+      _toleranceCorrelation = 1.E-3;
   }
 };
 
 COMPARE_FIXED_VALUES_UNNORM(TestJohnsonWithFormulaParameters, CompareFixedUnnorm)
-COMPARE_FIXED_VALUES_NORM(TestJohnsonWithFormulaParameters, DISABLED_CompareFixedNorm)
+COMPARE_FIXED_VALUES_NORM(TestJohnsonWithFormulaParameters, CompareFixedNorm)
+COMPARE_FIXED_VALUES_NORM_LOG(TestJohnsonWithFormulaParameters, CompareFixedNormLog)
 
-FIT_TEST_SCALAR(TestJohnsonWithFormulaParameters, DISABLED_RunScalar)
-FIT_TEST_BATCH(TestJohnsonWithFormulaParameters, DISABLED_RunBatch)
-FIT_TEST_BATCH_VS_SCALAR(TestJohnsonWithFormulaParameters, DISABLED_CompareBatchScalar)
+FIT_TEST_SCALAR(TestJohnsonWithFormulaParameters, RunScalar)
+FIT_TEST_BATCH(TestJohnsonWithFormulaParameters, RunBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestJohnsonWithFormulaParameters, CompareBatchScalar)

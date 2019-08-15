@@ -40,11 +40,16 @@ class TestGauss : public PDFTest
       for (auto par : {mean, sigma}) {
         _parameters.addOwned(*par);
       }
+
+      // Standard of 1.E-14 is slightly too strong.
+      _toleranceCompareBatches = 3.E-14;
+      _toleranceCompareLogs = 3.E-14;
   }
 };
 
 COMPARE_FIXED_VALUES_UNNORM(TestGauss, CompareFixedUnnorm)
 COMPARE_FIXED_VALUES_NORM(TestGauss, CompareFixedNorm)
+COMPARE_FIXED_VALUES_NORM_LOG(TestGauss, CompareFixedNormLog)
 
 FIT_TEST_SCALAR(TestGauss, RunScalar)
 FIT_TEST_BATCH(TestGauss, RunBatch)
@@ -106,8 +111,9 @@ class TestGaussInMeanAndX : public PDFTest
   }
 };
 
-COMPARE_FIXED_VALUES_UNNORM(TestGaussInMeanAndX, FixedValuesUnnorm)
-COMPARE_FIXED_VALUES_NORM(TestGaussInMeanAndX, FixedValuesNorm)
+COMPARE_FIXED_VALUES_UNNORM(TestGaussInMeanAndX, CompareFixedUnnorm)
+COMPARE_FIXED_VALUES_NORM(TestGaussInMeanAndX, CompareFixedNorm)
+COMPARE_FIXED_VALUES_NORM_LOG(TestGaussInMeanAndX, CompareFixedNormLog)
 
 FIT_TEST_BATCH(TestGaussInMeanAndX, RunBatch)
 FIT_TEST_BATCH_VS_SCALAR(TestGaussInMeanAndX, CompareBatchScalar)
@@ -141,11 +147,14 @@ class TestGaussWithFormulaParameters : public PDFTest
 
       _otherObjects.addOwned(*mean);
       _otherObjects.addOwned(*sigma);
+
+      _toleranceCompareBatches = 2.E-14;
   }
 };
 
 COMPARE_FIXED_VALUES_UNNORM(TestGaussWithFormulaParameters, FixedValuesUnnorm)
 COMPARE_FIXED_VALUES_NORM(TestGaussWithFormulaParameters, FixedValuesNorm)
+COMPARE_FIXED_VALUES_NORM_LOG(TestGaussWithFormulaParameters, FixedValuesNormLog)
 
 FIT_TEST_SCALAR(TestGaussWithFormulaParameters, RunScalar)
 FIT_TEST_BATCH(TestGaussWithFormulaParameters, RunBatch)

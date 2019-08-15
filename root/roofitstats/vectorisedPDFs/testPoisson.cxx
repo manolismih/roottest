@@ -18,27 +18,6 @@
 
 #include "RooPoisson.h"
 
-class TestPoissonFixedValues : public PDFTest
-{
-  protected:
-    TestPoissonFixedValues() :
-      PDFTest("PoissonOddMeanNoRounding", 1000)
-  {
-      auto x = new RooRealVar("x", "x", -10, 100);
-      auto mean = new RooRealVar("mean", "Mean of Poisson", 7.8529298854862928, 0., 10);
-      _pdf = std::make_unique<RooPoisson>("Pois", "Poisson PDF", *x, *mean, true);
-
-      _variables.addOwned(*x);
-
-      for (auto par : {mean}) {
-        _parameters.addOwned(*par);
-      }
-
-  }
-};
-
-COMPARE_FIXED_VALUES_UNNORM(TestPoissonFixedValues, CompareFixedValues);
-
 
 class TestPoisson : public PDFTest
 {
@@ -86,16 +65,14 @@ FIT_TEST_BATCH(TestPoissonOddMean, DISABLED_RunBatch)
 FIT_TEST_BATCH_VS_SCALAR(TestPoissonOddMean, CompareBatchScalar)
 
 
-
 class TestPoissonOddMeanNoRounding : public PDFTest
 {
   protected:
     TestPoissonOddMeanNoRounding() :
-      PDFTest("PoissonOddMeanNoRounding", 100000)
+      PDFTest("PoissonOddMeanNoRounding", 1000)
   {
-      auto x = new RooRealVar("x", "x", -10, 50);
-      x->setBins(60);
-      auto mean = new RooRealVar("mean", "Mean of Poisson", 7.5, 0., 50);
+      auto x = new RooRealVar("x", "x", 0., 100);
+      auto mean = new RooRealVar("mean", "Mean of Poisson", 7.8529298854862928, 0., 10);
       _pdf = std::make_unique<RooPoisson>("Pois", "Poisson PDF", *x, *mean, true);
 
       _variables.addOwned(*x);
@@ -104,12 +81,15 @@ class TestPoissonOddMeanNoRounding : public PDFTest
         _parameters.addOwned(*par);
       }
 
-      _variablesToPlot.add(*x);
+      _toleranceParameter = 1.2E-5;
   }
 };
+
+COMPARE_FIXED_VALUES_UNNORM(TestPoissonOddMeanNoRounding, CompareFixedValuesUnnorm);
+COMPARE_FIXED_VALUES_NORM(TestPoissonOddMeanNoRounding, CompareFixedValuesNorm);
+COMPARE_FIXED_VALUES_NORM_LOG(TestPoissonOddMeanNoRounding, CompareFixedValuesNormLog);
 
 // Fit tests have a small bias. Unclear why.
 FIT_TEST_SCALAR(TestPoissonOddMeanNoRounding, DISABLED_RunScalar)
 FIT_TEST_BATCH(TestPoissonOddMeanNoRounding, DISABLED_RunBatch)
-
 FIT_TEST_BATCH_VS_SCALAR(TestPoissonOddMeanNoRounding, CompareBatchScalar)

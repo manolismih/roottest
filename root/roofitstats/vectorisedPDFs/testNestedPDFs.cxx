@@ -70,11 +70,13 @@ class TestNestedPDFs : public PDFTest
 
 //      _toleranceParameter = 1.E-4;
 //      _toleranceCorrelation = 1.E-3;
+      _toleranceCompareLogs = 2.E-12;
   }
 };
 
 COMPARE_FIXED_VALUES_UNNORM(TestNestedPDFs, CompareFixedUnnorm)
 COMPARE_FIXED_VALUES_NORM(TestNestedPDFs, CompareFixedNorm)
+COMPARE_FIXED_VALUES_NORM_LOG(TestNestedPDFs, CompareFixedNormLog)
 
 FIT_TEST_SCALAR(TestNestedPDFs, RunScalar)
 FIT_TEST_BATCH(TestNestedPDFs, RunBatch)

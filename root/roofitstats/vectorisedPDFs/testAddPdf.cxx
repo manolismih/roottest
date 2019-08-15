@@ -55,11 +55,15 @@ class TestGaussPlusPoisson : public PDFTest
       for (auto obj : std::initializer_list<RooAbsPdf*>{gauss, pois}) {
         _otherObjects.addOwned(*obj);
       }
+
+      // Gauss is slightly less accurate
+      _toleranceCompareBatches = 2.E-14;
     }
 };
 
 COMPARE_FIXED_VALUES_UNNORM(TestGaussPlusPoisson, CompareFixedValuesUnnorm)
 COMPARE_FIXED_VALUES_NORM(TestGaussPlusPoisson, CompareFixedValuesNorm)
+COMPARE_FIXED_VALUES_NORM_LOG(TestGaussPlusPoisson, CompareFixedValuesNormLog)
 
 
 class TestGaussPlusPoissonFit : public PDFTest
@@ -145,65 +149,22 @@ class TestGaussPlusGaussPlusExp : public PDFTest
       for (auto obj : std::initializer_list<RooAbsPdf*>{expo, gauss, gauss2}) {
         _otherObjects.addOwned(*obj);
       }
+
+      _toleranceCompareLogs = 4.3E-14;
+
+      // VDT stops computing exponentials below exp(-708) = 3.3075530e-308
+      // Since this test runs Gaussians far from their mean, we need to be a bit more forgiving
+      _toleranceParameter = 5.E-5;
+      _toleranceCorrelation = 5.E-4;
     }
 };
 
 COMPARE_FIXED_VALUES_UNNORM(TestGaussPlusGaussPlusExp, CompareFixedValuesUnnorm)
 COMPARE_FIXED_VALUES_NORM(TestGaussPlusGaussPlusExp, CompareFixedValuesNorm)
+COMPARE_FIXED_VALUES_NORM_LOG(TestGaussPlusGaussPlusExp, CompareFixedValuesNormLog)
 
 
-class TestGaussPlusGaussPlusExpFit : public PDFTest
-{
-  protected:
-    TestGaussPlusGaussPlusExpFit() :
-      PDFTest("Gauss + Gauss + Exp")
-    {
-      auto x = new RooRealVar("x", "x", 0., 100.);
-
-      auto c = new RooRealVar("c", "c", -0.05, -100., -0.005);
-      auto expo = new RooExponential("expo", "expo", *x, *c);
-
-
-      auto mean = new RooRealVar("mean1", "mean of gaussian", 30., -10, 100);
-      auto sigma = new RooRealVar("sigma1", "width of gaussian", 4., 0.1, 20);
-      auto gauss = new RooGaussian("gauss1", "gaussian PDF", *x, *mean, *sigma);
-
-      auto mean2 = new RooRealVar("mean2", "mean of gaussian", 60., 50, 100);
-      auto sigma2 = new RooRealVar("sigma2", "width of gaussian", 10., 0.1, 20);
-      auto gauss2 = new RooGaussian("gauss2", "gaussian PDF", *x, *mean2, *sigma2);
-
-      auto nGauss = new RooRealVar("nGauss", "Fraction of Gauss component", 800., 0., 1.E6);
-      auto nGauss2 = new RooRealVar("nGauss2", "Fraction of Gauss component", 600., 0., 1.E6);
-      auto nExp = new RooRealVar("nExp", "Number of events in exp", 1000, 0, 1.E6);
-      _pdf = std::make_unique<RooAddPdf>("Sum2GausExp", "Sum of Gaus and Exponentials",
-          RooArgSet(*gauss, *gauss2, *expo),
-          RooArgSet(*nGauss, *nGauss2, *nExp));
-
-
-      _variables.addOwned(*x);
-
-      // VDT stops computing exponentials below exp(-708) = 3.3075530e-308
-      // Since this test runs Gaussians far from their mean, we need to be a bit more forgiving
-      _toleranceParameter = 5.E-6;
-      _toleranceCorrelation = 1.E-3;
-
-      for (auto par : {c, mean, sigma, mean2, sigma2}) {
-        _parameters.addOwned(*par);
-      }
-
-      for (auto par : {nGauss, nGauss2, nExp}) {
-        _yields.addOwned(*par);
-      }
-
-      for (auto obj : std::initializer_list<RooAbsPdf*>{expo, gauss, gauss2}) {
-        _otherObjects.addOwned(*obj);
-      }
-    }
-};
-
-
-
-FIT_TEST_SCALAR(TestGaussPlusGaussPlusExpFit, DISABLED_Scalar)
-FIT_TEST_BATCH(TestGaussPlusGaussPlusExpFit, DISABLED_Batch)
-FIT_TEST_BATCH_VS_SCALAR(TestGaussPlusGaussPlusExpFit, CompareBatchScalar)
+FIT_TEST_SCALAR(TestGaussPlusGaussPlusExp, DISABLED_Scalar)
+FIT_TEST_BATCH(TestGaussPlusGaussPlusExp, DISABLED_Batch)
+FIT_TEST_BATCH_VS_SCALAR(TestGaussPlusGaussPlusExp, CompareBatchScalar)
 

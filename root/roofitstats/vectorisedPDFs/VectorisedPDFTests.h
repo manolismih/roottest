@@ -45,7 +45,7 @@ class PDFTest : public ::testing::Test
 
     void kickParameters();
 
-    void compareFixedValues(bool normalise, bool runTimer = true, unsigned int nChunks = 1);
+    void compareFixedValues(bool normalise, bool compareLogs, bool runTimer = true, unsigned int nChunks = 1);
 
     void checkParameters();
 
@@ -72,6 +72,8 @@ class PDFTest : public ::testing::Test
     const std::size_t _nEvents;
     double _toleranceParameter{1.E-6};
     double _toleranceCorrelation{1.E-4};
+    double _toleranceCompareBatches{1.E-14};
+    double _toleranceCompareLogs{2.E-14};
     int _printLevel{-1};
 };
 
@@ -88,7 +90,7 @@ class PDFTestWeightedData : public PDFTest {
 #define COMPARE_FIXED_VALUES_UNNORM(TEST_CLASS, TEST_NAME) \
     TEST_F(TEST_CLASS, TEST_NAME) {\
   resetParameters();\
-  compareFixedValues(false);\
+  compareFixedValues(false, false);\
   \
   for (unsigned int i=0; i<5 && !HasFailure(); ++i) {\
     randomiseParameters(1337+i);\
@@ -99,7 +101,7 @@ class PDFTestWeightedData : public PDFTest {
       str << "\n\t" << p->GetName() << "\t" << p->getVal();\
     }\
     SCOPED_TRACE(str.str());\
-    compareFixedValues(false, false);\
+    compareFixedValues(false, false, false);\
   }\
 }
 
@@ -107,7 +109,7 @@ class PDFTestWeightedData : public PDFTest {
 #define COMPARE_FIXED_VALUES_NORM(TEST_CLASS, TEST_NAME) \
     TEST_F(TEST_CLASS, TEST_NAME) {\
   resetParameters();\
-  compareFixedValues(true);\
+  compareFixedValues(true, false);\
   \
   for (unsigned int i=0; i<5 && !HasFailure(); ++i) {\
     randomiseParameters(1337+i);\
@@ -118,10 +120,28 @@ class PDFTestWeightedData : public PDFTest {
       str << "\n\t" << p->GetName() << "\t" << p->getVal();\
     }\
     SCOPED_TRACE(str.str());\
-    compareFixedValues(true, false);\
+    compareFixedValues(true, false, false);\
   }\
 }
 
+/// Test batch against scalar code for fixed values of observable. Compute log probabilities.
+#define COMPARE_FIXED_VALUES_NORM_LOG(TEST_CLASS, TEST_NAME) \
+    TEST_F(TEST_CLASS, TEST_NAME) {\
+  resetParameters();\
+  compareFixedValues(true, true);\
+  \
+  for (unsigned int i=0; i<5 && !HasFailure(); ++i) {\
+    randomiseParameters(1337+i);\
+    std::stringstream str;\
+    str << "Parameter set " << i;\
+    for (auto par : _parameters) {\
+      auto p = static_cast<RooAbsReal*>(par);\
+      str << "\n\t" << p->GetName() << "\t" << p->getVal();\
+    }\
+    SCOPED_TRACE(str.str());\
+    compareFixedValues(true, true, false);\
+  }\
+}
 
 /// Run a fit for batch and scalar code and compare results.
 #define FIT_TEST_BATCH_VS_SCALAR(TEST_CLASS, TEST_NAME) \

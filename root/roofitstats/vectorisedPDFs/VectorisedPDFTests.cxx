@@ -27,6 +27,7 @@
 #include "RooPlot.h"
 #include "RooRandom.h"
 #include "RooConstVar.h"
+#include "Math/Util.h"
 
 #include <numeric>
 #include <ctime>
@@ -175,15 +176,33 @@ void PDFTest::kickParameters() {
   setValuesConstant(_otherObjects, true);
 }
 
-void PDFTest::compareFixedValues(bool normalise, bool runTimer, unsigned int nChunks) {
+void PDFTest::compareFixedValues(bool normalise, bool compareLogs, bool runTimer, unsigned int nChunks) {
   if (!_dataUniform)
     makeUniformData();
 
   const RooArgSet* normSet = nullptr;
-  std::string timerSuffix = " unnorm";
+  std::string timerSuffix = normalise ? " norm " :" unnorm ";
+  if (compareLogs) timerSuffix = " (logs)" + timerSuffix;
+
+  const double toleranceCompare = compareLogs ? _toleranceCompareLogs : _toleranceCompareBatches;
 
   RooArgSet* observables = _pdf->getObservables(*_dataUniform);
   RooArgSet* parameters  = _pdf->getParameters(*_dataUniform);
+
+  auto callBatchFunc = [compareLogs](const RooAbsPdf& pdf, std::size_t maxSize, const RooArgSet* normSet)
+      -> RooSpan<const double> {
+    if (compareLogs)
+      return pdf.getLogValBatch(0, maxSize, normSet);
+    else
+      return pdf.getValBatch(0, maxSize, normSet);
+  };
+
+  auto callScalarFunc = [compareLogs](const RooAbsPdf& pdf, const RooArgSet* normSet) {
+    if (compareLogs)
+      return pdf.getLogVal(normSet);
+    else
+      return pdf.getVal(normSet);
+  };
 
 
   // Batch run
@@ -192,13 +211,14 @@ void PDFTest::compareFixedValues(bool normalise, bool runTimer, unsigned int nCh
 
   if (normalise) {
     normSet = &_variables;
+
   }
 
   MyTimer batchTimer("Evaluate batch" + timerSuffix + _name);
   __itt_resume();
   if (nChunks != 1)
     std::cerr << __FILE__ << ":" << __LINE__ << " Implement this!" << std::endl;
-  auto outputsBatch = _pdf->getValBatch(0, _dataUniform->sumEntries(), normSet);
+  auto outputsBatch = callBatchFunc(*_pdf, _dataUniform->sumEntries(), normSet);
   __itt_pause();
   if (runTimer)
     std::cout << batchTimer;
@@ -223,16 +243,14 @@ void PDFTest::compareFixedValues(bool normalise, bool runTimer, unsigned int nCh
   if (normalise) {
     //      normSet = new RooArgSet(*observables);
     normSet = &_variables;
-    timerSuffix = " norm";
   }
   *parameters = _parameters;
-
 
   {
     MyTimer singleTimer("Evaluate scalar" + timerSuffix + _name);
     for (unsigned int i=0; i < _dataUniform->sumEntries(); ++i) {
       *observables = *_dataUniform->get(i);
-      outputsScalar[i] = _pdf->getVal(normSet);
+      outputsScalar[i] = callScalarFunc(*_pdf, normSet);
     }
     if (runTimer)
       std::cout << singleTimer;
@@ -257,13 +275,20 @@ void PDFTest::compareFixedValues(bool normalise, bool runTimer, unsigned int nCh
 
   // Compare runs
   unsigned int nOff = 0;
+  ROOT::Math::KahanSum<> sumDiffs;
+  ROOT::Math::KahanSum<> sumVars;
   for (unsigned int i=0; i < outputsBatch.size(); ++i) {
     const double relDiff = outputsBatch[i] != 0. ?
         (outputsScalar[i]-outputsBatch[i])/outputsBatch[i]
         : outputsScalar[i];
 
+    sumDiffs += relDiff;
+    sumVars  += relDiff * relDiff;
+
+
     // Check accuracy of computations, but give it some leniency for very small likelihoods
-    if (fabs(relDiff) > 1.E-12 && fabs(outputsScalar[i]) > 1.E-300) {
+    if ( (fabs(relDiff) > toleranceCompare && fabs(outputsScalar[i]) > 1.E-50 ) ||
+         (fabs(relDiff) > 1.E-10 && fabs(outputsScalar[i]) > 1.E-300) ) {
       if (nOff < 5) {
         *observables = *_dataUniform->get(i);
         std::cout << "Compare event " << i << "\t" << std::setprecision(15);
@@ -277,7 +302,7 @@ void PDFTest::compareFixedValues(bool normalise, bool runTimer, unsigned int nCh
       try {
         *observables = *_dataUniform->get(i);
         _pdf->getVal(normSet);
-        _pdf->checkBatchComputation(i, normSet);
+        _pdf->checkBatchComputation(i, normSet, toleranceCompare);
       } catch (std::exception& e) {
         std::cerr << "ERROR when checking batch computation for event " << i << ":\n"
             << e.what() << std::endl;
@@ -287,6 +312,9 @@ void PDFTest::compareFixedValues(bool normalise, bool runTimer, unsigned int nCh
   }
 
   EXPECT_EQ(nOff, 0u);
+  EXPECT_GT(sumDiffs/outputsBatch.size(), -toleranceCompare) << "Batch outputs biased towards negative.";
+  EXPECT_LT(sumDiffs/outputsBatch.size(), toleranceCompare)  << "Batch outputs biased towards positive.";
+  EXPECT_LT(sqrt(sumVars/outputsBatch.size()), toleranceCompare) << "High standard deviation for batch results vs scalar.";
 }
 
 

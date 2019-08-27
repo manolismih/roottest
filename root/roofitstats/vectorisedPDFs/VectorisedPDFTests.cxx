@@ -194,19 +194,19 @@ void PDFTest::compareFixedValues(double& maximalError, bool normalise, bool comp
   RooArgSet* observables = _pdf->getObservables(*_dataUniform);
   RooArgSet* parameters  = _pdf->getParameters(*_dataUniform);
 
-  auto callBatchFunc = [compareLogs](const RooAbsPdf& pdf, std::size_t maxSize, const RooArgSet* normSet)
+  auto callBatchFunc = [compareLogs](const RooAbsPdf& pdf, std::size_t maxSize, const RooArgSet* theNormSet)
       -> RooSpan<const double> {
     if (compareLogs)
-      return pdf.getLogValBatch(0, maxSize, normSet);
+      return pdf.getLogValBatch(0, maxSize, theNormSet);
     else
-      return pdf.getValBatch(0, maxSize, normSet);
+      return pdf.getValBatch(0, maxSize, theNormSet);
   };
 
-  auto callScalarFunc = [compareLogs](const RooAbsPdf& pdf, const RooArgSet* normSet) {
+  auto callScalarFunc = [compareLogs](const RooAbsPdf& pdf, const RooArgSet* theNormSet) {
     if (compareLogs)
-      return pdf.getLogVal(normSet);
+      return pdf.getLogVal(theNormSet);
     else
-      return pdf.getVal(normSet);
+      return pdf.getVal(theNormSet);
   };
 
 

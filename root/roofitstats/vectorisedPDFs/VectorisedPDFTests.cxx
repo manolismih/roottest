@@ -31,6 +31,7 @@
 
 #include <numeric>
 #include <ctime>
+#include <chrono>
 
 #ifdef __INTEL_COMPILER
 #include "ittnotify.h"
@@ -42,9 +43,8 @@ void __itt_pause() {}
 class MyTimer {
   public:
     MyTimer(std::string&& name)
-  : m_name(name), m_startTime(clock()), m_endTime(0) {
-      m_startTime = clock();
-    }
+  : m_name(name), m_startTime(clock()), m_endTime(0),
+    m_steadyStart(std::chrono::steady_clock::now()), m_steadyEnd() { }
 
     clock_t diffTime() const {
       return clock() - m_startTime;
@@ -52,17 +52,22 @@ class MyTimer {
 
     void interval() {
       m_endTime = clock();
+      m_steadyEnd = std::chrono::steady_clock::now();
     }
 
     void print(std::ostream& str) {
       clock_t diff = m_endTime - m_startTime;
-      str << "\n" << "Timer '" << m_name << "':\t" << double(diff)/CLOCKS_PER_SEC << "s" << std::endl;
+      std::chrono::duration<double> diffSteady = m_steadyEnd - m_steadyStart;
+      str << "\n" << "Timer '" << m_name << "':\t" << double(diff)/CLOCKS_PER_SEC << "s (CPU) "
+          << diffSteady.count() << "s (wall)" << std::endl;
     }
 
   private:
     std::string m_name;
     clock_t m_startTime;
     clock_t m_endTime;
+    std::chrono::time_point<std::chrono::steady_clock> m_steadyStart;
+    std::chrono::time_point<std::chrono::steady_clock> m_steadyEnd;
 };
 
 std::ostream& operator<<(std::ostream& str, MyTimer& timer) {
@@ -428,8 +433,10 @@ std::unique_ptr<RooFitResult> PDFTest::runBatchFit(RooAbsPdf* pdf) {
   auto result = pdf->fitTo(*_dataFit,
       RooFit::BatchMode(true),
       RooFit::SumW2Error(false),
-      RooFit::Optimize(0),
-      RooFit::PrintLevel(_printLevel), RooFit::Save());
+      RooFit::Optimize(1),
+      RooFit::PrintLevel(_printLevel), RooFit::Save()
+//      ,RooFit::NumCPU(8)
+  );
   std::cout << batchTimer;
   EXPECT_NE(result, nullptr);
   if (!result)
@@ -473,7 +480,9 @@ std::unique_ptr<RooFitResult> PDFTest::runScalarFit(RooAbsPdf* pdf) {
   auto result = pdf->fitTo(*_dataFit,
       RooFit::BatchMode(false),
       RooFit::SumW2Error(false),
-      RooFit::PrintLevel(_printLevel), RooFit::Save());
+      RooFit::PrintLevel(_printLevel), RooFit::Save()
+//      ,RooFit::NumCPU(8)
+  );
   std::cout << singleTimer;
   EXPECT_NE(result, nullptr);
   if (!result)

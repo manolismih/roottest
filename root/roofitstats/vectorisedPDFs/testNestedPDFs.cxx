@@ -33,8 +33,8 @@ class TestNestedPDFs : public PDFTest
       auto x = new RooRealVar("x", "x", -5., 5.);
 
       // Implement a polynomial. Value ranges are chosen to keep it positive.
-      // Note that even though the parameters are constant for the fit, the ranges for constant
-      // parameters are used when testing the function at random parameter points.
+      // Note that even though the parameters are constant for the fit, they are still
+      // varied within their ranges when testing the function at random parameter points.
       auto a0 = new RooRealVar("a0", "a0", 2., 3., 10.);
       auto a1 = new RooRealVar("a1", "a1", -2, -2.1, -1.9);
       auto a2 = new RooRealVar("a2", "a2", 1., 1., 5.);

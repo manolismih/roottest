@@ -60,46 +60,46 @@ FIT_TEST_BATCH_VS_SCALAR(TestJohnson, FitBatchVsScalar)
 
 
 
-class TestJohnsonInMassAndGamma : public PDFTest
+class TestJohnsonInMassAndMu : public PDFTest
 {
   protected:
-    TestJohnsonInMassAndGamma() :
-      PDFTest("Johnson in mass and gamma", 200000)
+    TestJohnsonInMassAndMu() :
+      PDFTest("Johnson in mass and mu", 200000)
   {
       auto mass = new RooRealVar("mass", "mass", 0., -100., 500.);
-      auto mu = new RooRealVar("mu", "Location parameter of normal distribution", 200., -100., 300.);
-      auto lambda = new RooRealVar ("lambda", "Two sigma of normal distribution", 50., 5, 100.);
+      auto mu = new RooRealVar("mu", "Location parameter of normal distribution", 100., 90., 110.);
+      auto lambda = new RooRealVar ("lambda", "Two sigma of normal distribution", 20., 10., 30.);
       auto gamma = new RooRealVar ("gamma", "gamma", -0.7, -2., 2.);
-      auto delta = new RooRealVar ("delta", "delta", 10, 0.9, 15.);
+      auto delta = new RooRealVar ("delta", "delta", 1.337, 0.9, 2.);
 
       _pdf = std::make_unique<RooJohnson>("johnson", "johnson", *mass, *mu, *lambda, *gamma, *delta);
 
 
       _variables.addOwned(*mass);
-      _variables.addOwned(*gamma);
+      _variables.addOwned(*mu);
 
-      _variablesToPlot.add(*mass);
-//      _variablesToPlot.add(*gamma);
+//      _variablesToPlot.add(*mass);
 
-      for (auto par : {mu, lambda, delta}) {
+      for (auto par : {gamma, lambda, delta}) {
         _parameters.addOwned(*par);
       }
 
-      // The parameters seem to be nasty:
-      _toleranceCompareBatches = 3.E-12;
-      _toleranceCompareLogs = 5.E-14;
-      _toleranceParameter = 5.E-5;
-      _toleranceCorrelation = 5.E-3;
+      _toleranceCompareBatches = 7.E-13;
+      _toleranceCompareLogs = 1.E-13;
+      //      _printLevel = 2;
+//      _toleranceParameter = 5.E-5;
+      _toleranceCorrelation = 1.5E-3;
   }
 };
 
-COMPARE_FIXED_VALUES_UNNORM(TestJohnsonInMassAndGamma, CompareFixedUnnorm)
-COMPARE_FIXED_VALUES_NORM(TestJohnsonInMassAndGamma, CompareFixedNorm)
-COMPARE_FIXED_VALUES_NORM_LOG(TestJohnsonInMassAndGamma, DISABLED_CompareFixedNormLog)
+COMPARE_FIXED_VALUES_UNNORM(TestJohnsonInMassAndMu, CompareFixedUnnorm)
+COMPARE_FIXED_VALUES_NORM(TestJohnsonInMassAndMu, CompareFixedNorm)
+COMPARE_FIXED_VALUES_NORM_LOG(TestJohnsonInMassAndMu, CompareFixedNormLog)
 
-FIT_TEST_SCALAR(TestJohnsonInMassAndGamma, FitScalar)
-FIT_TEST_BATCH(TestJohnsonInMassAndGamma, FitBatch)
-FIT_TEST_BATCH_VS_SCALAR(TestJohnsonInMassAndGamma, CompareBatchScalar)
+// Is it clear that the fits can infer the value of lambda when generating in mu?
+FIT_TEST_SCALAR(TestJohnsonInMassAndMu, DISABLED_FitScalar)
+FIT_TEST_BATCH(TestJohnsonInMassAndMu, DISABLED_FitBatch)
+FIT_TEST_BATCH_VS_SCALAR(TestJohnsonInMassAndMu, CompareBatchScalar)
 
 
 

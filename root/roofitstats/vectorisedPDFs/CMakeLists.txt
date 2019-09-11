@@ -49,3 +49,14 @@ ROOT_ADD_GTEST(testLegendre testLegendre.cxx
               LIBRARIES VectorisedPDFTests)
 ROOT_ADD_GTEST(testChiSquarePdf testChiSquarePdf.cxx
               LIBRARIES VectorisedPDFTests)
+ROOT_ADD_GTEST(testDstD0BG testDstD0BG.cxx
+              LIBRARIES VectorisedPDFTests
+              WILLFAIL)
+ROOT_ADD_GTEST(testLognormal testLognormal.cxx
+              LIBRARIES VectorisedPDFTests)
+ROOT_ADD_GTEST(testNovosibirsk testNovosibirsk.cxx
+              LIBRARIES VectorisedPDFTests
+              WILLFAIL)
+ROOT_ADD_GTEST(testVoigtian testVoigtian.cxx
+              LIBRARIES VectorisedPDFTests
+              WILLFAIL)
